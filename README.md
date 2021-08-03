@@ -1,4 +1,4 @@
-# AHK输入法键盘布局自动切换
+#AHK输入法键盘布局自动切换
 
 #### 介绍
 基于AutoHotkey的自动切换输入法键盘布局
@@ -11,9 +11,9 @@
 1. KBLAutoSwitch下载
     1. Gitee下载：
     2. GitHub下载：
-    3. 蓝奏云下载：
-    4. 百度云下载：
-    5. 阿里云下载
+    3. 蓝奏云下载：https://wwr.lanzoui.com/b02i9dmsd 密码:fd5v
+    4. 百度云下载：https://pan.baidu.com/s/1PsMJKhHJrWPJJq8q4j42mA 提取码: 9a4m 
+    5. 阿里云下载：https://www.aliyundrive.com/s/VzDyNFPU4Vn
 2. Runany官网：https://hui-zz.gitee.io/runany/#/
 3. AutoHotkey官网：https://www.autohotkey.com/
 
@@ -54,10 +54,15 @@
 #### 参与贡献
 1. 基于原作者【lspcieee】自动切换输入法脚本，后由【心如止水】改编，现修复了一些新win下的切换bug，删除一些功能，增加一些功能
 
-#### 特技
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+#### 版本说明
+- v2.0.0
+    1. 修复了在windows下alt+tab切换太快不生效的问题
+    2. 添加了输入法右下角提示,包括GUI和ToolTip两种显示，前者右下角显示，后者一种跟随鼠标显示
+    3. 增加默认输入法
+    4. 删除编辑器、窗口切换，统一新开窗口和切换窗口的切换
+    5. 去除光标、菜单
+    6. 增加更多可配置项
+    7. 均采用自动切换输入法，系统建议win+空格切换输入法
+    8. win+空格切换键盘布局显示GUI
+    9. 解决uwp应用的键盘布局获取问题，修改xshell键盘获取，以命令行对应的键盘布局为准，每次切换自动对焦到xshell命令行
+
