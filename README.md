@@ -1,97 +1,59 @@
-# AHK输入法键盘布局自动切换
+# AHK中英文输入法自动切换
 
-![](https://p5-tt.byteimg.com/origin/pgc-image/28949807e7f74a918e2caf1191249ae2#.gif)
+![](https://p1.meituan.net/dpgroup/b5e4b6cec6cf2d7f0e5c7695bbcae2624676333.gif)
+![添加窗口.gif](https://p1.meituan.net/dpgroup/a9771bc5bfd008757ea649e195393ee91798805.gif)
+![快捷键切换及鼠标指针.gif](https://p0.meituan.net/dpgroup/3eb68bdba0a5ea9bcaecaf4e85c2d33e1873722.gif)
 
 #### 介绍
 
-基于AutoHotkey的自动切换输入法键盘布局
+基于AutoHotkey的中英文输入法自动切换
+Ahk版本: 1.1.33.10
 
-1. 可针对不同的应用自动切换中英文键盘布局
-2. 可设置切换输入法在屏幕右下角文字提示
-3. 可设置切换输入法在鼠标位置文字提示
-4. 可设置中英文键盘布局、提示方式、文字提示样式及内容、应用默认输入法等
+1. 可针对不同的应用自动切换中英文输入法，包括中文输入法、英文(中文输入法)、英文输入法三种切换窗口
+2. 可设置GUI显示中英文状态
+3. 可设置ToolTip显示中英文状态
+4. 可设置图标显示中英文状态
+5. 可设置鼠标指针显示中英文状态，支持cur和ani两种格式
+6. 可设置快捷键将指定应用设置为中英文，快捷键切换输入法
 
 #### 特殊说明
-1. 微软所有输入法会自动记录窗口的中英文，好像叫智能切换，但是关机记录的窗口对应中英文不保存，包括拼音和五笔。会造成切换到中文键盘，却是英文输入。可以使用搜狗、小鹤音形等第三方中文输入法
-2. 目前qq拼音手动切换会造成脚本卡顿，原因不明
+1. 暂时不支持 微软中文输入法
 
 #### 下载地址
 1. KBLAutoSwitch下载
-    1. Gitee下载：https://gitee.com/aktongliang/KBLAutoSwitch
-    2. GitHub下载：https://github.com/flyinclouds/KBLAutoSwitch
-    3. 蓝奏云下载：https://wwr.lanzoui.com/b02i9dmsd 密码:fd5v
-    4. 百度云下载：https://pan.baidu.com/s/1PsMJKhHJrWPJJq8q4j42mA 提取码: 9a4m 
-    5. 阿里云下载：https://www.aliyundrive.com/s/VzDyNFPU4Vn
-2. RunAny官网：https://hui-zz.gitee.io/runany/#/
-3. AutoHotkey官网：https://www.autohotkey.com/
+    蓝奏云下载：https://wwr.lanzoui.com/b02i9dmsd 密码:fd5v
 
-#### 安装教程
-1. 作为RunAny插件使用
-    1. 下载安装【RunAny】 https://hui-zz.gitee.io/runany/#/
-    2. 将【tong_KBLAutoSwitch.ahk】和【tong_KBLAutoSwitch.ini】添加至【RunAny】的【RunPlugins】文件夹，在RunAny中【开启】并设置为【自启】，右下角出现中英文提示表示成功
-    3. 打开RunAny.ini或RunAny2.ini文件，添加以下内容，可自定义快捷键，替换【F9】【F10】【F11】【F12】
-       		当前窗口添加至英文(&A)	F12|tong_KBLAutoSwitch[AddToEn]()
-          		当前窗口添加至中文(&S)	F11|tong_KBLAutoSwitch[AddToCn]()
-          		当前窗口移除(&D)		F10|tong_KBLAutoSwitch[RemoveFromAll]()
-          		获取当前键盘布局号码(&F)	F9|tong_KBLAutoSwitch[GetKeyBoard]()
-    4. 在【指定窗口】上使用3中设置的快捷键，将自动添加到相应中英文窗口
-    5. 英文输入法可在windows-设置-时间和语言-语言-添加英语
-    6. 全局手动切换需要自己在系统里面设置切换键盘布局的快捷键，默认win+空格，建议中文输入法设置取消shift切换中文输入法的中英文，避免误触
-2. 以exe方式运行
-    1. 运行KBLAutoSwitch.exe文件，右下角出现中英文提示表示成功
-    2.  托盘打开设置，默认使用快捷键【F10】【F11】【F12】进行设置默认、中文、英文输入法
-    3. 在【指定窗口】上使用2中设置的快捷键，将自动添加到相应中英文窗口
-    4. 托盘设置开机启动
-    5. 英文输入法可在windows-设置-时间和语言-语言-添加英语
-    6. 全局手动切换需要自己在系统里面设置切换键盘布局的快捷键，默认win+空格，建议中文输入法设置取消shift切换中文输入法的中英文，避免误触
-3. 以AHK脚本运行
-    1. 安装AutoHotkey V1版本 https://www.autohotkey.com/ 并安装
-    2. 运行tong_KBLAutoSwitch.ahk文件，右下角出现中英文提示表示成功
-    3. 托盘打开设置，默认使用快捷键【F10】【F11】【F12】进行设置默认、中文、英文输入法
-    4. 在【指定窗口】上使用3中设置的快捷键，将自动添加到相应中英文窗口
-    5. 托盘设置开机启动
-    6. 英文输入法可在windows-设置-时间和语言-语言-添加英语
-    7. 全局手动切换需要自己在系统里面设置切换键盘布局的快捷键，默认win+空格，建议中文输入法设置取消shift切换中文输入法的中英文，避免误触
+#### 其他网址连接
+1. RunAny官网（优秀的快捷启动工具）：https://hui-zz.gitee.io/runany/#/
+2. AutoHotkey官网：https://www.autohotkey.com/
+3. AHK中文论坛：https://www.autoahk.com/
 
-#### 文件说明
-1. 源代码文件
-    1. tong_KBLAutoSwitch.ahk 	【必要】		主脚本文件
-    2. tong_KBLAutoSwitch.ini 	【必要】		配置文件
-    3. AU3_Spy.exe 		【非必要】	可用来获取窗口的信息，部分窗口自动无法设置时可使用，进行手动配置。【建议】窗口直接使用【快捷键】【自动配置】
-2. 可执行文件
-    1. KBLAutoSwitch.exe 	【必要】		主脚本文件
-    2. KBLAutoSwitch.ini 		【必要】		配置文件
+#### 使用方式
+1. 运行 KBLAutoSwitch.exe
+2. 右键 windows任务栏图标，打开设置选项进行设置
+3. 热键配置处设置 窗口添加移除快捷键
+4. 打开指定软件使用 3 中设置的快捷键添加移除
 
-#### 使用建议
-1. 使用【RunAny】作为【插件】使用
-2. 【中文】使用【搜狗输入法】、【手心输入法】、【小鹤音形】等第三方非微软自带中文输入法
-3. 【英文】使用【微软自带】英文输入法键盘
-4. 【中文】输入法取消【shift】切换英文
-5. 使用【win+空格】切换输入法，避免误触
+#### 鼠标指针替换
+1. 打开Curs文件夹
+2. 替换对应名称鼠标指针文件，支持以下名称
+    1. IBEAM_Cn     输入状态下中文
+    2. IBEAM_En     输入状态下英文
+    3. IBEAM_A      输入状态下大写
+    4. NORMAL_Cn    正常状态下中文
+    5. NORMAL_En    正常状态下英文
+    6. NORMAL_A     正常状态下大写
+    7. APPSTARTING  软件启动状态
+    8. HAND         小手状态
 
-#### 参与贡献
-1. 基于原作者【lspcieee】自动切换输入法脚本，后由【心如止水】改编，现修复了一些新win下的bug，删除了一些功能，增加了一些功能
+#### 软件输入法状态托盘图标替换
+1. 打开Icos文件夹
+2. 替换对应名称图标文件，支持以下名称
+    1. black_Cn     黑色主题中文
+    1. black_En     黑色主题英文
+    1. black_A      黑色主题大写
+    1. white_Cn     白色主题中文
+    1. white_A      黑色主题英文
+    1. white_En     黑色主题大写
 
-#### 版本说明
-- v2.0.2
-	1. 修复cmd切换显示问题
-	2. 添加托盘菜单，增加开机启动、设置等
-	3. 修复原来右下角切换显示的颜色错误
-	4. 作为RunAny插件时：快捷键添加可作为RunAny插件功能，可自定义原【F10】【F11】【F12】功能，原检测键盘布局号码功能也作为插件功能，但无托盘菜单
-- v2.0.1
-    1. 添加快捷添加功能，一键在【指定窗口】上使用快捷键，将自动添加到相应窗口，并自动重启应用，【F12】添加当前窗口到【英文】，【F11】添加当前窗口到【中文】，【F10】移除当前窗口将恢复【默认输入法】，默认开启，可通过配置文件【关闭】该功能、
-    2. 添加了焦点控件切换窗口,解决部分应用出现【切换显示错误】
-    3. 取消win底部任务栏切换，保证切换显示的正确性
-    4. 增加配置初始化，删除配置文件重启应用将自动初始化配置文件
-    5. 优化了一些系统窗口的输入法切换规则，提升使用体验，比如任务栏的上三角不再造成输入法的切换，任务栏的变动
-    6. 有一丢丢的速度提升
-- v2.0.0
-    1. 修复了在windows下alt+tab切换太快不生效的问题
-    2. 添加了输入法右下角提示,包括GUI和ToolTip两种显示，前者右下角显示，后者一种跟随鼠标显示
-    3. 增加默认输入法
-    4. 删除编辑器、窗口切换，统一新开窗口和切换窗口的切换
-    5. 去除光标、菜单
-    6. 增加更多可配置项
-    7. 均采用自动切换输入法，系统建议win+空格切换输入法
-    8. win+空格切换键盘布局显示GUI
-    9. 解决uwp应用的键盘布局获取问题，修改Xshell键盘获取，以命令行对应的键盘布局为准，每次切换自动对焦到Xshell命令行
+
