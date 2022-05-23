@@ -38,22 +38,25 @@ Ahk版本: 1.1.33.10
 1. 打开Curs文件夹
 2. 替换对应名称鼠标指针文件，支持以下名称
     1. IBEAM_Cn     输入状态下中文
-    2. IBEAM_En     输入状态下英文
-    3. IBEAM_A      输入状态下大写
-    4. NORMAL_Cn    正常状态下中文
-    5. NORMAL_En    正常状态下英文
-    6. NORMAL_A     正常状态下大写
-    7. APPSTARTING  软件启动状态
-    8. HAND         小手状态
+    2. IBEAM_Cn_A 输入状态下中文大写
+    3. IBEAM_En     输入状态下英文
+    4. IBEAM_En_A 输入状态下大写
+    5. NORMAL_Cn     输入状态下中文
+    6. NORMAL_Cn_A 输入状态下中文大写
+    7. NORMAL_En     输入状态下英文
+    8. NORMAL_En_A 输入状态下大写
+    9. APPSTARTING, HAND, HELP, SIZEALL, SIZENESW, SIZENS, SIZENWSE, SIZEWE, WAIT
 
 #### 软件输入法状态托盘图标替换
 1. 打开Icos文件夹
 2. 替换对应名称图标文件，支持以下名称
     1. black_Cn     黑色主题中文
+    1. black_A_CN 黑色主题中文大写
     1. black_En     黑色主题英文
-    1. black_A      黑色主题大写
-    1. white_Cn     白色主题中文
-    1. white_A      黑色主题英文
-    1. white_En     黑色主题大写
+    1. black_A_EN  黑色主题英文大写
+    1. white_Cn     黑色主题中文
+    1. white_A_CN 黑色主题中文大写
+    1. white_En     黑色主题英文
+    1. white_A_EN  黑色主题英文大写
 
 
