@@ -25,7 +25,7 @@ Label_DefVar: ;初始化变量
 	;设置初始化变量，用于读取并保存INI配置文件参数
 	global INI := A_ScriptDir "\KBLAutoSwitch.ini"
 	global APPName := "KBLAutoSwitch"
-	global APPVersion := "2.1.3"
+	global APPVersion := "2.1.4"
 	;基础变量
 	global shell_msg_num := 0		;接受窗口切换等消息
 	global State_ShowTime := 1000
@@ -33,7 +33,7 @@ Label_DefVar: ;初始化变量
 	global CN_Code,EN_Code,Auto_Switch,Switch_Display,X_Pos_Coef,Y_Pos_Coef,Display_Time_GUI,Display_Time_ToolTip
 	global Font_Color,Font_Size,Font_Weight,Font_Transparency
 	global Display_Cn,Display_En,Default_Keyboard
-	global Auto_Reload_MTime,Tray_Display,Tray_Display_KBL,Tray_Display_Menu,Double_Click_Open_KBL
+	global Auto_Reload_MTime,Tray_Display,Tray_Display_KBL,Double_Click_Open_KBL
 	global Switch_Model:=1,Launch_Admin:=1,Auto_Launch:=0,ImmGetDefaultIMEWnd
 	global Disable_HotKey_App_List,Disable_Switch_App_List
 	global Cur_Launch,Cur_Format,Cur_Size
@@ -41,7 +41,7 @@ Label_DefVar: ;初始化变量
 	global Hotkey_Set_Chinese,Hotkey_Set_ChineseEnglish,Hotkey_Set_English,Hotkey_Display_KBL,Hotkey_Reset_KBL
 	global Hotkey_Stop_KBLAS,Hotkey_Get_KeyBoard
 	global Hotkey_Left_Shift,Hotkey_Right_Shift,Hotkey_Left_Ctrl,Hotkey_Right_Ctrl,Hotkey_Left_Alt,Hotkey_Right_Alt
-	global Open_Ext
+	global Open_Ext,Outer_InputKey_Compatible
 	;配置文件不存在则初始化INI配置文件，存在则检测下是否是最新的配置文件版本
 	if !FileExist(INI)
 		initINI()
@@ -156,7 +156,6 @@ Label_ReadINI: ;读取INI配置文件
 	iniread, Auto_Reload_MTime, %INI%, 基本设置,重启时间, 2000
 	iniread, Tray_Display_KBL, %INI%, 基本设置,图标显示输入法, 1
 	iniread, Tray_Display, %INI%, 基本设置,托盘图标显示, 1
-	iniread, Tray_Display_Menu, %INI%, 基本设置,托盘右键显示菜单, 1
 	iniread, Double_Click_Open_KBL, %INI%, 基本设置,双击打开语言首选项, 1
 	iniread, Switch_Model, %INI%, 基本设置,切换模式, 1
 	iniread, Auto_Launch, %INI%, 基本设置,开机自启, 0
@@ -190,6 +189,7 @@ Label_ReadINI: ;读取INI配置文件
 	
 	;读取高级设置
 	iniread, Open_Ext, %INI%, 高级设置, 内部关联, %A_Space%
+	iniread, Outer_InputKey_Compatible, %INI%, 高级设置, 快捷键兼容, 0
 	
 	;读取分组
 	iniread, INI_CN, %INI%, 中文窗口
@@ -381,12 +381,14 @@ Label_CreateHotkey:	;创建热键
 		Hotkey, %Hotkey_Get_KeyBoard%, Get_KeyBoard
 
 Label_BoundHotkey:	;绑定特殊热键
-	BoundHotkey("~LShift",Hotkey_Left_Shift)
-	BoundHotkey("~RShift",Hotkey_Right_Shift)
-	BoundHotkey("~LCtrl",Hotkey_Left_Ctrl)
-	BoundHotkey("~RCtrl",Hotkey_Right_Ctrl)
-	BoundHotkey("~LAlt",Hotkey_Left_Alt)
-	BoundHotkey("~RAlt",Hotkey_Right_Alt)
+	If (Outer_InputKey_Compatible=1)
+		extraKey := " Up"
+	BoundHotkey("~LShift" extraKey,Hotkey_Left_Shift)
+	BoundHotkey("~RShift" extraKey,Hotkey_Right_Shift)
+	BoundHotkey("~LCtrl" extraKey,Hotkey_Left_Ctrl)
+	BoundHotkey("~RCtrl" extraKey,Hotkey_Right_Ctrl)
+	BoundHotkey("~LAlt" extraKey,Hotkey_Left_Alt)
+	BoundHotkey("~RAlt" extraKey,Hotkey_Right_Alt)
 
 Label_Main: ;主运行脚本
 	;监控消息回调shellMessage，新建窗口和切换窗口自动设置输入法
@@ -718,7 +720,6 @@ initINI() { ;初始化INI
 	FileAppend,重启时间=2000`n, %INI%
 	FileAppend,托盘图标显示=1`n, %INI%
 	FileAppend,图标显示输入法=1`n, %INI%
-	FileAppend,托盘右键显示菜单=1`n, %INI%
 	FileAppend,双击打开语言首选项=1`n, %INI%
 	FileAppend,切换模式=1`n, %INI%
 	FileAppend,管理员启动=1`n, %INI%
@@ -752,6 +753,7 @@ initINI() { ;初始化INI
 	FileAppend,`n;--------------------------------********************【高级配置】********************--------------------------------`n, %INI%
 	FileAppend,[高级设置]`n, %INI%
 	FileAppend,内部关联=..\RunAny\RunAnyConfig.ini`n, %INI%
+	FileAppend,快捷键兼容=0`n, %INI%
 	FileAppend,`n;--------------------------------********************【窗口配置】********************--------------------------------`n, %INI%
 	FileAppend,[中文窗口]`n, %INI%
 	;win搜索栏
@@ -777,17 +779,6 @@ createTray() { ;右键托盘菜单
 	TrayTipContent := A_IsAdmin=1?"中英文自动切换（管理员）":"中英文自动切换（非管理员）"
 	Menu, Tray, Tip, %TrayTipContent%
 	Menu, Tray, NoStandard
-	If (Double_Click_Open_KBL=1){
-		Menu, Tray, Click, 2
-		Menu, Tray, Add, 关闭菜单, menu_close
-		Menu, Tray, Icon, 关闭菜单, % Ico_path["关闭菜单"], % Ico_num["关闭菜单"]
-		Menu, Tray, Add, 语言首选项, Menu_Language
-		Menu, Tray, Icon, 语言首选项, % Ico_path["语言首选项"], % Ico_num["语言首选项"]
-		Menu, Tray, Default ,语言首选项
-	}
-	If (Tray_Display_Menu=0){
-		Return
-	}
 	Menu, Tray, Add, 关闭菜单, menu_close
 	Menu, Tray, Icon, 关闭菜单, % Ico_path["关闭菜单"], % Ico_num["关闭菜单"]
 	Menu, Tray, Add, 语言首选项, Menu_Language
@@ -806,6 +797,15 @@ createTray() { ;右键托盘菜单
 	Menu, Tray, Icon, 重启, % Ico_path["重启"], % Ico_num["重启"]
 	Menu, Tray, Add, 退出, Menu_Exit
 	Menu, Tray, Icon, 退出, % Ico_path["退出"], % Ico_num["退出"]
+	If (Double_Click_Open_KBL>0){
+		Menu, Tray, Click, 2
+		Switch Double_Click_Open_KBL 
+		{
+			Case 1: Menu, Tray, Default ,语言首选项
+			Case 2: Menu, Tray, Default ,设置
+			Case 3: Menu, Tray, Default ,停止
+		}	
+	}
 }
 
 FilePathRun(FilePath){ ;使用内部关联打开文件
@@ -844,7 +844,7 @@ Return
 
 Menu_Settings_Gui: ;设置页面GUI
 	Critical On
-	Menu, Tray, Icon, HICON:*%CNIcon%
+	Menu, Tray, Icon, %A_AhkPath%
 	global EditSliderobj := Object()
 	Edit_Hwnd:="",Slider_Hwnd:=""
 	Gui_width_55 := 520
@@ -861,7 +861,7 @@ Menu_Settings_Gui: ;设置页面GUI
 	
 	Gui, 55:Tab, 基础设置1
 	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h70, 【启动】设置
-	Gui, 55:Add, Text, xm+12 yp+30, 开机自启
+	Gui, 55:Add, Text, xm+%left_margin% yp+30, 开机自启
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vAuto_Launch, 禁止|开启
 	GuiControl, Choose, Auto_Launch, % Auto_Launch+1
 	Gui, 55:Add, Text, x+82 yp+1, 启动权限
@@ -870,7 +870,7 @@ Menu_Settings_Gui: ;设置页面GUI
 
 
 	Gui, 55:Add, GroupBox, xm-10 y+27 w%group_width_55% h105, 【输入法切换】设置
-	Gui, 55:Add, Text, xm+12 yp+30, 自动切换
+	Gui, 55:Add, Text, xm+%left_margin% yp+30, 自动切换
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vAuto_Switch, 禁止|开启
 	GuiControl, Choose, Auto_Switch, % Auto_Switch+1
 	Gui, 55:Add, Text, x+82 yp+1, 切换提示
@@ -923,11 +923,8 @@ Menu_Settings_Gui: ;设置页面GUI
 	Gui, 55:Add, Text, x+48 yp+1, 图标显示输入法
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vTray_Display_KBL, 关闭|显示
 	GuiControl, Choose, Tray_Display_KBL, % Tray_Display_KBL+1
-	Gui, 55:Add, Text, xm+%left_margin% yp+34, 托盘右键`n显示菜单
-	Gui, 55:Add, DropDownList, x+5 yp+6 w%text_width% vTray_Display_Menu, 关闭|显示
-	GuiControl, Choose, Tray_Display_Menu, % Tray_Display_Menu+1
-	Gui, 55:Add, Text, x+60 yp-6, 双击图标打开`n%A_Space%语言首选项
-	Gui, 55:Add, DropDownList, x+5 yp+6 w%text_width% vDouble_Click_Open_KBL, 禁止|开启
+	Gui, 55:Add, Text, xm+%left_margin% yp+43, 双击图标
+	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vDouble_Click_Open_KBL, 禁止|语言首选项|设置|停止
 	GuiControl, Choose, Double_Click_Open_KBL, % Double_Click_Open_KBL+1
 
 	Gui, 55:Tab
@@ -1021,11 +1018,12 @@ Menu_Settings_Gui: ;设置页面GUI
 	Gui, 55:Tab, 高级配置
 	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h539, 高级配置（双击编辑查看）
 	Gui, 55:Add, ListView, Count1 vCommandChoice ggAdvanced_Config xm yp+22 r23 w%group_list_width_55%, 序号|配置名称|状态|值|说明
-		LV_Add(, 1, "内部关联", openExtRunList_num, Open_Ext,"内部关联文件路径，兼容RA[RunAnyConfig.ini]，支持相对路径")
+		LV_Add(, 1, "内部关联", openExtRunList_num, Open_Ext,"-内部关联文件路径，用于打开配置文件和路径`n兼容RA[RunAnyConfig.ini]，支持相对路径")
+		LV_Add(, 2, "快捷键兼容", Outer_InputKey_Compatible, Outer_InputKey_Compatible,"-软件内快捷键兼容：`n0：适用于左右shift分别对应中英文场景；`n1：适用于单shift切换中英文场景，兼容输入法，不影响中英文符号输入")
 		LV_ModifyCol(1,"Center")
-		LV_ModifyCol(2,"Center")
+		LV_ModifyCol(2)
 		LV_ModifyCol(3,"Center")
-		LV_ModifyCol(4,group_width_55*0.45)
+		LV_ModifyCol(4)
 
 	TrayTipContent := A_IsAdmin=1?"（管理员）":"（非管理员）"
 	Gui, 55:Show,w%Gui_width_55%, 设置：%APPName% v%APPVersion%%TrayTipContent%
@@ -1072,7 +1070,7 @@ SliderChange(CtrlHwnd, GuiEvent, EventInfo, ErrLevel:=""){
 
 Menu_About: ;关于页面GUI
 	Critical On
-	Menu, Tray, Icon, HICON:*%CNIcon%
+	Menu, Tray, Icon, %A_AhkPath%
 	Gui, 99:Destroy
 	Gui, 99:Color, FFFFFF
 	Gui, 99:Add, ActiveX, x0 y0 w700 h550 voWB, shell explorer
@@ -1125,13 +1123,11 @@ return
 Menu_Stop: ;停止脚本
 	Gui, Hide
 	If (A_IsSuspended){
-		If (Tray_Display_Menu=1)
-			Menu, Tray, UnCheck, 停止
+		Menu, Tray, UnCheck, 停止
 		OnMessage(shell_msg_num, "shellMessage")
 		shellMessage(1, 0)
 	}Else{
-		If (Tray_Display_Menu=1)
-			Menu, Tray, Check, 停止
+		Menu, Tray, Check, 停止
 		OnMessage(shell_msg_num, "")
 	}
 	Suspend
@@ -1165,8 +1161,7 @@ Set_OK: ;确认按钮的功能
 	Default_Keyboard := Default_Keyboard="英文"?0:1
 	Tray_Display := Tray_Display="关闭"?0:1
 	Tray_Display_KBL := Tray_Display_KBL="关闭"?0:1
-	Tray_Display_Menu := Tray_Display_Menu="关闭"?0:1
-	Double_Click_Open_KBL := Double_Click_Open_KBL="禁止"?0:1
+	Double_Click_Open_KBL := Double_Click_Open_KBL="禁止"?0:(Double_Click_Open_KBL="语言首选项"?1:(Double_Click_Open_KBL="设置"?2:3))
 	Launch_Admin := Launch_Admin="普通"?0:1
 	Auto_Launch := Auto_Launch="禁止"?0:1
 	Cur_Launch := Cur_Launch="禁止"?0:1
@@ -1198,7 +1193,6 @@ Set_OK: ;确认按钮的功能
 	IniWrite, %Display_Time_ToolTip%, %INI%, 基本设置, 显示时间_ToolTip
 	IniWrite, %Default_Keyboard%, %INI%, 基本设置, 默认输入法
 	IniWrite, %Tray_Display_KBL%, %INI%, 基本设置, 图标显示输入法
-	IniWrite, %Tray_Display_Menu%, %INI%, 基本设置, 托盘右键显示菜单
 	IniWrite, %Double_Click_Open_KBL%, %INI%, 基本设置, 双击打开语言首选项
 	IniWrite, %Launch_Admin%, %INI%, 基本设置, 管理员启动
 	IniWrite, %Auto_Launch%, %INI%, 基本设置, 开机自启
@@ -1237,8 +1231,11 @@ Set_OK: ;确认按钮的功能
 	Loop, % LV_GetCount()
 	{
 		LV_GetText(OutputVar, A_Index , 4)
-		If (A_Index=1)
-			IniWrite, %OutputVar%, %INI%, 高级设置, 内部关联
+		Switch A_Index
+		{
+			Case 1: IniWrite, %OutputVar%, %INI%, 高级设置, 内部关联
+			Case 2: IniWrite, %OutputVar%, %INI%, 高级设置, 快捷键兼容
+		}
 	}
 	gosub, Menu_Reload
 return
@@ -1284,11 +1281,11 @@ Menu_AdvancedConfigEdit_Gui: ;编辑配置Gui
 	Gui,ConfigEdit:+Owner55
 	Gui,ConfigEdit:Margin,20,20
 	Gui,ConfigEdit:Font,,Microsoft YaHei
-	Gui,ConfigEdit:Add, GroupBox,xm y+10 w450 h150, %ACvar1%.%A_Space%%ACvar2%：%ACvar3%
+	Gui,ConfigEdit:Add, GroupBox,xm y+10 w450 h170, %ACvar1%.%A_Space%%ACvar2%：%ACvar3%
 	Gui,ConfigEdit:Add, Text, xm+10 y+35 y35 w30,%A_Space%值
 	Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd x+5 yp w350 r2, %ACvar4%
 	Gui,ConfigEdit:Add, Text, xm+10 y+15 w30,说明
-	Gui,ConfigEdit:Add, Edit, x+5 yp w350 r3 -WantReturn ReadOnly, %ACvar5%
+	Gui,ConfigEdit:Add, Edit, x+5 yp w350 r4 -WantReturn ReadOnly, %ACvar5%
 	Gui,ConfigEdit:Font
 	Gui,ConfigEdit:Add,Button,Default xm+140 y+25 w75 gSaveAdvancedConfig,保存(&S)
 	Gui,ConfigEdit:Add,Button,x+20 w75 GSetCancel,取消(&C)
@@ -1461,18 +1458,26 @@ Remove_From_All: ;从配置窗口中移除，恢复为默认输入法
 Return
 
 Set_Chinese: ;当前窗口设为中文
+	If (Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|dowb)", ""))
+		Return
 	setKBLlLayout(0)
 Return
 
 Set_ChineseEnglish: ;当前窗口设为英文（中文输入法）
+	If (Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|dowb)", ""))
+		Return
 	setKBLlLayout(1)
 Return
 
 Set_English: ;当前窗口设为英文
+	If (Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|dowb)", ""))
+		Return
 	setKBLlLayout(2)
 Return
 
 toggle_CN_CNEN: ;切换中英文(中文)
+	If (Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|dowb)", ""))
+		Return
 	If (getIMEKBL(gl_Active_win_id)!=EN_Code && getIMECode(gl_Active_win_id)=1)
 		setKBLlLayout(1)
 	Else
@@ -1480,6 +1485,8 @@ toggle_CN_CNEN: ;切换中英文(中文)
 Return
 
 toggle_CN_EN: ;切换中英文输入法
+	If (Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|dowb)", ""))
+		Return
 	If (getIMEKBL(gl_Active_win_id)!=EN_Code && getIMECode(gl_Active_win_id)=1){
 		If (KBLEnglish_Exist=1)
 			setKBLlLayout(2)
@@ -1530,16 +1537,14 @@ getINIItem() { ;获取设置INI文件的key-val
 }
 
 BoundHotkey(BoundHotkey,Hotkey_Fun){ ;绑定特殊热键
-	If (Hotkey_Fun=1)
-		Hotkey, %BoundHotkey%, Set_Chinese
-	If (Hotkey_Fun=2)
-		Hotkey, %BoundHotkey%, Set_ChineseEnglish
-	If (Hotkey_Fun=3)
-		Hotkey, %BoundHotkey%, Set_English
-	If (Hotkey_Fun=4)
-		Hotkey, %BoundHotkey%, toggle_CN_CNEN
-	If (Hotkey_Fun=5)
-		Hotkey, %BoundHotkey%, toggle_CN_EN
+	Switch Hotkey_Fun
+	{
+		Case 1: Hotkey, %BoundHotkey%, Set_Chinese
+		Case 2: Hotkey, %BoundHotkey%, Set_ChineseEnglish
+		Case 3: Hotkey, %BoundHotkey%, Set_English
+		Case 4: Hotkey, %BoundHotkey%, toggle_CN_CNEN
+		Case 5: Hotkey, %BoundHotkey%, toggle_CN_EN
+	}
 }
 
 ExitFunc(){ ;退出执行
