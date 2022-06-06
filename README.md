@@ -19,6 +19,9 @@ Ahk版本: 1.1.33.10
 #### 特殊说明
 1. 暂时不支持 微软中文输入法
 
+#### 交流群
+<a href="https://jq.qq.com/?_wv=1027&k=445Ug7u">246308937【RunAny快速启动一劳永逸】</a>
+
 #### 下载地址
 1. KBLAutoSwitch下载
     蓝奏云下载：https://wwr.lanzoui.com/b02i9dmsd 密码:fd5v
