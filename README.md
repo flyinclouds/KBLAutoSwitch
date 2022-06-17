@@ -15,7 +15,7 @@ Ahk版本: 1.1.33.10
 2. 建议将输入法中shift切换关闭，在软件-热键配置-【特殊】热键中设置shift功能
 
 #### 交流群
-<a href="https://jq.qq.com/?_wv=1027&k=445Ug7u">246308937【RunAny快速启动一劳永逸】</a>
+<a href="https://jq.qq.com/?_wv=1027&k=A3F0yfcy">548517941【KBLAutoSwitch交流群】</a>
 
 #### 下载地址
     （个人配置）蓝奏云下载：https://wwr.lanzoui.com/b02i9dmsd 密码:fd5v

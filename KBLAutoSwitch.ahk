@@ -26,7 +26,7 @@ Label_DefVar: ;初始化变量
 	;设置初始化变量，用于读取并保存INI配置文件参数
 	global INI := A_ScriptDir "\KBLAutoSwitch.ini"
 	global APPName := "KBLAutoSwitch"
-	global APPVersion := "2.1.7"
+	global APPVersion := "2.1.8"
 	;基础变量
 	global shell_msg_num := 0		;接受窗口切换等消息
 	global State_ShowTime := 1000
@@ -287,6 +287,8 @@ If (Auto_Switch=1){
 	;默认焦点控件切换窗口：uwp、资源管理器
 	GroupAdd, focus_control_ahk_group, ahk_exe ApplicationFrameHost.exe
 	GroupAdd, focus_control_ahk_group, ahk_exe explorer.exe
+	;获取输入光标位置sleep组
+	GroupAdd, GetCaretSleep_ahk_group, ahk_class Chrome_WidgetWin_1
 }
 
 Label_DropDownListData:
@@ -298,7 +300,7 @@ Label_DropDownListData:
 	global DefaultCapsLockState := "无|小写|大写"
 
 Label_Hotstring: ;自定义操作
-	TarFunList := Object()
+	global TarFunList := Object(),TarHotFunFlag := 0
 	Loop, parse, Custom_Hotstring, `n, `r
 	{
 		MyVar := StrSplit(Trim(A_LoopField), "=")
@@ -500,7 +502,7 @@ Label_BoundHotkey:	;绑定特殊热键
 	getINISwitchWindows(Left_Mouse_ShowKBL_temp[2],"Left_Mouse_ShowKBL_WinGroup","|")
 	Hotkey, IfWinActive, ahk_group Left_Mouse_ShowKBL_WinGroup
 	If (Left_Mouse_ShowKBL_State=1){
-		Hotkey, ~LButton, Lable_showSwitchCode
+		Hotkey, ~LButton, Lable_Click_showSwitch
 		Hotkey, ~WheelUp, Hide_TT
 		Hotkey, ~WheelDown, Hide_TT
 	}
@@ -579,10 +581,13 @@ getINISwitchWindows(INIVar:="",groupName:="",Delimiters:="`n"){ ;从配置文件
 	}
 }
 
-showSwitch() { ;选择显示中英文
-	gl_Active_IMEwin_id := getIMEwinid()
-	KBLState := (getIMEKBL(gl_Active_IMEwin_id)=EN_Code || getIMECode(gl_Active_IMEwin_id)!=1)
-	CapsLockState := DllCall("GetKeyState", UInt, 20) & 1
+showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ;选择显示中英文
+	If (KBLState=""){
+		gl_Active_IMEwin_id := getIMEwinid()
+		KBLState := (getIMEKBL(gl_Active_IMEwin_id)=EN_Code || getIMECode(gl_Active_IMEwin_id)!=1)
+	}
+	If (CapsLockState="")
+		CapsLockState := DllCall("GetKeyState", UInt, 20) & 1
 	If (Cur_Size!=0)
 		MonitorNum := 1
 	Else{
@@ -591,9 +596,9 @@ showSwitch() { ;选择显示中英文
 		MonitorNum := getMonitorNum(OutputVarX,OutputVarY)
 	}
 	Display_KBL_Flag := Object()
-	If (LastKBLState=KBLState && LastCapsState=CapsLockState && LastMonitorNum=MonitorNum)
+	If (ForceShowSwitch=0 && LastKBLState=KBLState && LastCapsState=CapsLockState && LastMonitorNum=MonitorNum)
 		Return
-	If (LastKBLState!=KBLState || LastCapsState!=CapsLockState){
+	If (ForceShowSwitch!=0 || LastKBLState!=KBLState || LastCapsState!=CapsLockState){
 		LastKBLState:=KBLState
 		LastCapsState:=CapsLockState
 		If (Display_KBL_Flag[1]!=1){
@@ -610,7 +615,7 @@ showSwitch() { ;选择显示中英文
 			Cur_Display_KBL(KBLState,CapsLockState,MonitorNum)
 		}
 	}
-	If (LastMonitorNum!=MonitorNum){
+	If (ForceShowSwitch!=0 && LastMonitorNum!=MonitorNum){
 		LastMonitorNum := MonitorNum
 		static 	LastMonitorW:=0
 		If (Display_KBL_Flag[3]!=1 && LastMonitorW!=MonitorAreaObjects[MonitorNum][5]){
@@ -640,13 +645,13 @@ getIMEwinid(){ ; 获取激活窗口IME线程id
 getIMEKBL(win_id:="") { ;激活窗口键盘布局检测
 	thread_id := DllCall("GetWindowThreadProcessId", "UInt", win_id, "UInt", 0)
 	input_locale_id := DllCall("GetKeyboardLayout", "UInt", thread_id)
-	Return %input_locale_id%
+	Return input_locale_id
 }
 
 getIMECode(win_id:="") { ;激活窗口键盘布局中英文状态检测
 	SendMessage 0x283, 0x005, 0, , ahk_id %win_id%
 	input_locale_id := ErrorLevel
-	Return %input_locale_id%
+	Return input_locale_id
 }
 
 setIME(setSts, win_id:="") { ;设置输入法状态
@@ -661,13 +666,16 @@ setIME(setSts, win_id:="") { ;设置输入法状态
 }
 
 setKBLlLayout(KBL:=0){ ; 切换输入法
+	Thread, NoTimers, True
 	gl_Active_IMEwin_id := getIMEwinid()
+	CapsLockState := LastCapsState
 	If !WinActive("ahk_group Inner_AHKGroup_NoCapsLock") {
 		Switch SubStr(Reset_CapsLock, 1, 1)
 		{
 			Case 1: SetCapsLockState, Off
 			Case 2: SetCapsLockState, On
 		}
+		CapsLockState := SubStr(Reset_CapsLock, 1, 1)-1
 	}
 	If (KBL=0){ ;切换中文输入法
 		If (getIMEKBL(gl_Active_IMEwin_id)=CN_Code){
@@ -689,8 +697,8 @@ setKBLlLayout(KBL:=0){ ; 切换输入法
 		If (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code)
 			PostMessage, 0x50, , %EN_Code%, , ahk_id %gl_Active_IMEwin_id%
 	}
-	showSwitchGui(LastKBLState,LastCapsState)
-	showSwitchTT(LastKBLState,LastCapsState)
+	Thread, NoTimers, False
+	showSwitch(KBL=0?0:1,CapsLockState,1)
 }
 
 shellMessage(wParam, lParam) { ;接受系统窗口回调消息, 第一次是实时，第二次是保障
@@ -753,6 +761,13 @@ showSwitchGui(KBLState,CapsLockState) { ;显示切换或当前的输入法状态
 }
 
 showSwitchTT(KBLState,CapsLockState,mouclick:=0) { ;显示切换或当前的输入法状态，以TT方式显示
+	If (TarHotFunFlag!=0 || mouclick=1){
+		Tooltip,1,-9999,-9999
+		Tooltip
+		Sleep,10
+		If (TarHotFunFlag=2 && WinActive("ahk_group GetCaretSleep_ahk_group"))
+			WinWait, A, , 0.01
+	}
 	If (TT_OnOff!=1)
 		Return
 	Msg := KBLState=0?Display_Cn:Display_En
@@ -765,15 +780,13 @@ showSwitchTT(KBLState,CapsLockState,mouclick:=0) { ;显示切换或当前的输�
 	GuiControl, Font, %TT_Edit_Hwnd%
 	Gui SwitchTT:+AlwaysOnTop
 	If (ShowSwitch_Pos=0){
-		MouseGetPos, CaretX, CaretY
-		CaretX := CaretX+TT_X_Shift,CaretY := CaretY+TT_Y_Shift
-		SetTimer, Hide_TT, % TT_Display_Time
+		MouseGetPos, CaretX, CaretY	
 	}Else If (ShowSwitch_Pos=1){
-		Caret := GetCaret()
-		CaretX := Caret["x"]+TT_X_Shift,CaretY := Caret["y"]+TT_Y_Shift
+		GetCaret(CaretX, CaretY)
 		If (mouclick=1 && A_Cursor!="IBeam")
 			Goto, Hide_TT
 	}
+	CaretX := CaretX+TT_X_Shift, CaretY := CaretY+TT_Y_Shift
 	try Gui, SwitchTT:Show, x%CaretX% y%CaretY% NoActivate
 	SetTimer, Hide_TT, %TT_Display_Time%
 	Return
@@ -1954,25 +1967,25 @@ Remove_From_All: ;从配置窗口中移除，恢复为默认输入法
 Return
 
 Set_Chinese: ;当前窗口设为中文
-	If (TarHotFunFlag !=1 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
+	If (TarHotFunFlag =0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	setKBLlLayout(0)
 Return
 
 Set_ChineseEnglish: ;当前窗口设为英文（中文输入法）
-	If (TarHotFunFlag !=1 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
+	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	setKBLlLayout(1)
 Return
 
 Set_English: ;当前窗口设为英文
-	If (TarHotFunFlag !=1 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
+	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	setKBLlLayout(2)
 Return
 
 toggle_CN_CNEN: ;切换中英文(中文)
-	If (TarHotFunFlag !=1 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
+	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	If (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code && getIMECode(gl_Active_IMEwin_id)=1)
 		setKBLlLayout(1)
@@ -1981,7 +1994,7 @@ toggle_CN_CNEN: ;切换中英文(中文)
 Return
 
 toggle_CN_EN: ;切换中英文输入法
-	If (TarHotFunFlag !=1 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
+	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	If (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code && getIMECode(gl_Active_IMEwin_id)=1){
 		If (KBLEnglish_Exist=1)
@@ -1993,11 +2006,11 @@ toggle_CN_EN: ;切换中英文输入法
 Return
 
 Display_KBL: ;显示当前的输入法状态
-	showSwitch()
+	showSwitch(,,1)
 Return
 
 Reset_KBL: ;重置当前输入法键盘布局
-	If (TarHotFunFlag !=1 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
+	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	gosub, Shell_Switch
 Return
@@ -2035,21 +2048,28 @@ getINIItem() { ;获取设置INI文件的key-val
 }
 
 TarHotFun: ;热字串功能触发
-	Critical On
-	TarHotFunFlag := 1
-	TarHotVal:=StrReplace(A_ThisHotkey, ":*XB0:")
-	TarFun := TarFunList[TarHotVal]
-	Switch TarFun
-	{
-		Case 1: Gosub, Set_Chinese
-		Case 2: Gosub, Set_ChineseEnglish
-		Case 3: Gosub, Set_English
-		Case 4: Gosub, toggle_CN_CNEN
-		Case 5: Gosub, toggle_CN_EN
-		Case 6: Gosub, Reset_KBL
-	}
-	TarHotFunFlag := 0
-	Critical Off
+	TarHotFunFlag := 2 ; 1表示热字符串，2表示热键
+	gosub,SetTimer_TarHotFun
+	SetTimer,SetTimer_TarHotFun,-100
+	Return
+
+	SetTimer_TarHotFun:
+		TarHotVal := A_ThisHotkey
+		If (SubStr(TarHotVal, 1, 6)=":*XB0:"){
+			TarHotVal := SubStr(TarHotVal, 7)
+			TarHotFunFlag := 1
+		}
+		TarFun := TarFunList[TarHotVal]
+		Switch TarFun
+		{
+			Case 1: Gosub, Set_Chinese
+			Case 2: Gosub, Set_ChineseEnglish
+			Case 3: Gosub, Set_English
+			Case 4: Gosub, toggle_CN_CNEN
+			Case 5: Gosub, toggle_CN_EN
+			Case 6: Gosub, Reset_KBL
+		}
+		TarHotFunFlag := 0
 Return
 
 BoundHotkey(BoundHotkey,Hotkey_Fun){ ;绑定特殊热键
@@ -2064,13 +2084,14 @@ BoundHotkey(BoundHotkey,Hotkey_Fun){ ;绑定特殊热键
 	}
 }
 
-Lable_showSwitchCode:
-	SetTimer,SetTimer_Lable_showSwitchCode,-50
+Lable_Click_showSwitch: ; 左键点击提示
+	SetTimer,SetTimer_Lable_Click_showSwitch,-20
 	Return
 
-	SetTimer_Lable_showSwitchCode:
+	SetTimer_Lable_Click_showSwitch:
 		showSwitchTT(LastKBLState,LastCapsState,1)
 Return
+
 
 ExitFunc(){ ;退出执行
 	DllCall( "SystemParametersInfo", "UInt",0x57, "UInt",0, "UInt",0, "UInt",0 ) ;还原鼠标指针
@@ -2111,27 +2132,25 @@ Send_WM_COPYDATA(ByRef StringToSend, ByRef TargetScriptTitle, wParam:=0){
 }
 
 ;获取输入光标位置，源代码来源：https://www.autoahk.com/archives/16443
-GetCaret(Byref CaretX="", Byref CaretY="")
-{
+GetCaret(Byref CaretX="", Byref CaretY="") {
 	static init
 	CoordMode, Caret, Screen
 	CaretX:=A_CaretX, CaretY:=A_CaretY
-	if (!CaretX or !CaretY)
+	if (!CaretX or !CaretY){
 		Try {
 			if (!init)
-				init:=DllCall("LoadLibrary","Str","oleacc","Ptr")
-	VarSetCapacity(IID,16), idObject:=OBJID_CARET:=0xFFFFFFF8
-		, NumPut(idObject==0xFFFFFFF0?0x0000000000020400:0x11CF3C3D618736E0, IID, "Int64")
-		, NumPut(idObject==0xFFFFFFF0?0x46000000000000C0:0x719B3800AA000C81, IID, 8, "Int64")
-	if DllCall("oleacc\AccessibleObjectFromWindow"
-		, "Ptr",WinExist("A"), "UInt",idObject, "Ptr",&IID, "Ptr*",pacc)=0
-			{
+				init:=DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "oleacc", "Ptr"), "AStr", "AccessibleObjectFromWindow", "Ptr")
+			VarSetCapacity(IID,16), idObject:=OBJID_CARET:=0xFFFFFFF8
+			, NumPut(idObject==0xFFFFFFF0?0x0000000000020400:0x11CF3C3D618736E0, IID, "Int64")
+			, NumPut(idObject==0xFFFFFFF0?0x46000000000000C0:0x719B3800AA000C81, IID, 8, "Int64")
+			if DllCall(init, "Ptr",WinExist("A"), "UInt",idObject, "Ptr",&IID, "Ptr*",pacc)=0 {
 				Acc:=ComObject(9,pacc,1), ObjAddRef(pacc)
-					, Acc.accLocation(ComObj(0x4003,&x:=0), ComObj(0x4003,&y:=0)
-					, ComObj(0x4003,&w:=0), ComObj(0x4003,&h:=0), ChildId:=0)
-					, CaretX:=NumGet(x,0,"int"), CaretY:=NumGet(y,0,"int")
+				, Acc.accLocation(ComObj(0x4003,&x:=0), ComObj(0x4003,&y:=0)
+				, ComObj(0x4003,&w:=0), ComObj(0x4003,&h:=0), ChildId:=0)
+				, CaretX:=NumGet(x,0,"int"), CaretY:=NumGet(y,0,"int"),ObjRelease(pacc)
 			}
 		}
+	}
 	If (A_Cursor="IBeam" && CaretX=0 && CaretY=0)
 		MouseGetPos, CaretX, CaretY
 	return {x:CaretX, y:CaretY}
