@@ -26,7 +26,7 @@ Label_DefVar: ;初始化变量
 	;设置初始化变量，用于读取并保存INI配置文件参数
 	global INI := A_ScriptDir "\KBLAutoSwitch.ini"
 	global APPName := "KBLAutoSwitch"
-	global APPVersion := "2.1.8"
+	global APPVersion := "2.1.9"
 	;基础变量
 	global shell_msg_num := 0		;接受窗口切换等消息
 	global State_ShowTime := 1000
@@ -501,7 +501,7 @@ Label_BoundHotkey:	;绑定特殊热键
 	Left_Mouse_ShowKBL_State := Left_Mouse_ShowKBL_temp[1]
 	getINISwitchWindows(Left_Mouse_ShowKBL_temp[2],"Left_Mouse_ShowKBL_WinGroup","|")
 	Hotkey, IfWinActive, ahk_group Left_Mouse_ShowKBL_WinGroup
-	If (Left_Mouse_ShowKBL_State=1){
+	If (Left_Mouse_ShowKBL_State=1 && TT_OnOff=1){
 		Hotkey, ~LButton, Lable_Click_showSwitch
 		Hotkey, ~WheelUp, Hide_TT
 		Hotkey, ~WheelDown, Hide_TT
@@ -2085,6 +2085,7 @@ BoundHotkey(BoundHotkey,Hotkey_Fun){ ;绑定特殊热键
 }
 
 Lable_Click_showSwitch: ; 左键点击提示
+	KeyWait, LButton, L
 	SetTimer,SetTimer_Lable_Click_showSwitch,-20
 	Return
 
