@@ -26,7 +26,7 @@ Label_DefVar: ;初始化变量
 	;设置初始化变量，用于读取并保存INI配置文件参数
 	global INI := A_ScriptDir "\KBLAutoSwitch.ini"
 	global APPName := "KBLAutoSwitch"
-	global APPVersion := "2.1.9"
+	global APPVersion := "2.2.0"
 	;基础变量
 	global shell_msg_num := 0		;接受窗口切换等消息
 	global State_ShowTime := 1000
@@ -45,7 +45,7 @@ Label_DefVar: ;初始化变量
 	global Hotkey_Set_Chinese,Hotkey_Set_ChineseEnglish,Hotkey_Set_English,Hotkey_Display_KBL,Hotkey_Reset_KBL,Hotkey_toggle_CN_CNEN,Hotkey_toggle_CN_EN
 	global Hotkey_Stop_KBLAS,Hotkey_Get_KeyBoard
 	global Hotkey_Left_Shift,Hotkey_Right_Shift,Hotkey_Left_Ctrl,Hotkey_Right_Ctrl,Hotkey_Left_Alt,Hotkey_Right_Alt
-	global Open_Ext,Outer_InputKey_Compatible,ShowSwitch_Pos,Left_Mouse_ShowKBL,SetTimer_Reset_KBL,Reset_CapsLock
+	global Open_Ext,Outer_InputKey_Compatible,ShowSwitch_Pos,Left_Mouse_ShowKBL,Left_Mouse_ShowKBL_Up,SetTimer_Reset_KBL,Reset_CapsLock
 	global Custom_Win_Group,Custom_Hotstring
 
 Label_AdminLaunch: ;管理员启动,保证管理员权限软件也可生效
@@ -72,6 +72,7 @@ Label_AdminLaunch: ;管理员启动,保证管理员权限软件也可生效
 	}
 
 Label_SystemVersion: ;获取win系统版本
+	global AppStartTime := A_YYYY "/" A_MM "/" A_DD "  " A_Hour ":" A_Min ":" A_Sec
 	global OSVersion := StrReplace(A_OSVersion, ".")
 	If (OSVersion="WIN_7")
 		OSVersion := 7
@@ -216,6 +217,7 @@ Label_ReadINI: ;读取INI配置文件
 	iniread, Open_Ext, %INI%, 高级设置, 内部关联, %A_Space%
 	iniread, Outer_InputKey_Compatible, %INI%, 高级设置, 快捷键兼容, 1
 	iniread, Left_Mouse_ShowKBL, %INI%, 高级设置, 左键点击输入位置显示输入法状态, 1|全局窗口
+	iniread, Left_Mouse_ShowKBL_Up, %INI%, 高级设置, 左键弹起后提示输入法状态生效窗口, Code.exe
 	iniread, SetTimer_Reset_KBL, %INI%, 高级设置, 定时重置输入法, 60|编辑器
 	iniread, Reset_CapsLock, %INI%, 高级设置, 切换重置大小写, 1
 
@@ -507,6 +509,8 @@ Label_BoundHotkey:	;绑定特殊热键
 		Hotkey, ~WheelDown, Hide_TT
 	}
 
+	getINISwitchWindows(Left_Mouse_ShowKBL_Up,"Left_Mouse_ShowKBL_Up_WinGroup","|")
+
 Label_Main: ;主运行脚本
 	DllCall("ChangeWindowMessageFilter", "UInt", 0x004A, "UInt" , 1)	; 接受非管理员权限RA消息
 	If (Auto_Switch=1){ ; 监听窗口消息
@@ -537,6 +541,7 @@ Label_End: ; 收尾
 	VarSetCapacity(Ico_path, 0)
 	VarSetCapacity(Ico_num, 0)
 	ScriptIniting := 0
+	SetTimer,Label_ClearMEM,-1000 ;清理内存
 
 Label_Return: ;结束标志
 Return
@@ -990,6 +995,7 @@ initINI() { ;初始化INI
 	FileAppend,内部关联=..\RunAny\RunAnyConfig.ini`n, %INI%
 	FileAppend,快捷键兼容=1`n, %INI%
 	FileAppend,左键点击输入位置显示输入法状态=1|全局窗口`n, %INI%
+	FileAppend,左键弹起后提示输入法状态生效窗口=Code.exe`n, %INI%
 	FileAppend,定时重置输入法=60|编辑器`n, %INI%
 	FileAppend,切换重置大小写=1`n, %INI%
 
@@ -1008,6 +1014,7 @@ initINI() { ;初始化INI
 	FileAppend,[英文窗口]`n, %INI%
 	FileAppend,win桌面=ahk_class WorkerW`n, %INI%
 	FileAppend,win桌面=ahk_class Progman`n, %INI%
+	FileAppend,资源管理器=ahk_class CabinetWClass`n, %INI%
 	FileAppend,cmd=ahk_exe cmd.exe`n, %INI%
 	FileAppend,任务管理器=ahk_exe Taskmgr.exe`n, %INI%
 	
@@ -1022,7 +1029,9 @@ initINI() { ;初始化INI
 
 createTray() { ;右键托盘菜单
 	;初始化托盘提示
-	TrayTipContent := A_IsAdmin=1?"中英文自动切换（管理员）":"中英文自动切换（非管理员）"
+	TrayTipContent := "中英文自动切换"
+	TrayTipContent .= A_IsAdmin=1?"（管理员）":"（非管理员）"
+	TrayTipContent .= "`n" AppStartTime
 	Menu, Tray, Tip, %TrayTipContent%
 	Menu, Tray, NoStandard
 	Menu, Tray, Add, 关闭菜单, menu_close
@@ -1297,8 +1306,9 @@ Menu_Settings_Gui: ;设置页面GUI
 		LV_Add(, 1, "内部关联", openExtRunList_num, Open_Ext,"-内部关联文件路径，用于打开配置文件和路径`n兼容RA[RunAnyConfig.ini]，支持相对路径")
 		LV_Add(, 2, "快捷键兼容", Outer_InputKey_Compatible, Outer_InputKey_Compatible,"-软件内快捷键兼容：`n0：适用于左右shift分别对应中英文场景；`n1：适用于单shift切换中英文场景，兼容输入法，不影响中英文符号输入")
 		LV_Add(, 3, "左键点击输入位置显示输入法状态", Left_Mouse_ShowKBL_State, Left_Mouse_ShowKBL,"-在指定窗口组左键点击提示输入法：`n1.参数1为开关，参数2为生效窗口组`n2.参数使用|分隔")
-		LV_Add(, 4, "定时重置输入法", "秒", SetTimer_Reset_KBL,"-无操作固定时间重置输入法（秒）：`n1.参数1为时间，参数2为窗口组`n2.参数使用|分隔")
-		LV_Add(, 5, "切换重置大小写", TransformState(DefaultCapsLockState,SubStr(Reset_CapsLock, 1, 1)), Reset_CapsLock,"-切换输入法后自动重置大小写：`n1.参数1为大小写状态(0为不重置，1为小写，2为大写)，参数2为屏蔽窗口组，该窗口组将不生效`n2.参数使用|分隔")
+		LV_Add(, 4, "左键弹起后提示输入法状态生效窗口", Left_Mouse_ShowKBL_State, Left_Mouse_ShowKBL_Up,"-在指定窗口组左键点击提示输入法时，使用左键弹起响应：`n参数为窗口或窗口组")
+		LV_Add(, 5, "定时重置输入法", "秒", SetTimer_Reset_KBL,"-无操作固定时间重置输入法（秒）：`n1.参数1为时间，参数2为窗口组`n2.参数使用|分隔")
+		LV_Add(, 6, "切换重置大小写", TransformState(DefaultCapsLockState,SubStr(Reset_CapsLock, 1, 1)), Reset_CapsLock,"-切换输入法后自动重置大小写：`n1.参数1为大小写状态(0为不重置，1为小写，2为大写)，参数2为屏蔽窗口组，该窗口组将不生效`n2.参数使用|分隔")
 		LV_ModifyCol(1,group_list_width_55*0.08 " Integer Center")
 		LV_ModifyCol(2,group_list_width_55*0.22)
 		LV_ModifyCol(3,group_list_width_55*0.08 " Integer Center")
@@ -1411,6 +1421,7 @@ Menu_About: ;页面GUI：关于
 	oWB.document.write(vHtml)
 	oWB.Refresh()
 	Gui, 99:Font, s11 Bold, Microsoft YaHei
+	Gui, 99:Add, Link, xm+18 y+10, 交流群：<a href="https://jq.qq.com/?_wv=1027&k=A3F0yfcy">548517941【KBLAutoSwitch交流群】</a>
 	Gui, 99:Add, Link, xm+18 y+10, 软件使用文档：<a href="https://docs.qq.com/doc/DWHFxVXBNbWNxcWpa">腾讯文档：https://docs.qq.com/doc/DWHFxVXBNbWNxcWpa</a>
 	Gui, 99:Add, Link, xm+18 y+10, 软件github地址：<a href="https://github.com/flyinclouds/KBLAutoSwitch">https://github.com/flyinclouds/KBLAutoSwitch</a>
 	Gui, 99:Add, Link, xm+18 y+10, 软件下载地址：<a href="https://wwr.lanzoui.com/b02i9dmsd">蓝奏云下载：https://wwr.lanzoui.com/b02i9dmsd 密码：fd5v</a>
@@ -1551,8 +1562,9 @@ Set_OK: ;确认按钮
 			Case 1: IniWrite, %OutputVar%, %INI%, 高级设置, 内部关联
 			Case 2: IniWrite, %OutputVar%, %INI%, 高级设置, 快捷键兼容
 			Case 3: IniWrite, %OutputVar%, %INI%, 高级设置, 左键点击输入位置显示输入法状态
-			Case 4: IniWrite, %OutputVar%, %INI%, 高级设置, 定时重置输入法
-			Case 5: IniWrite, %OutputVar%, %INI%, 高级设置, 切换重置大小写
+			Case 4: IniWrite, %OutputVar%, %INI%, 高级设置, 左键弹起后提示输入法状态生效窗口
+			Case 5: IniWrite, %OutputVar%, %INI%, 高级设置, 定时重置输入法
+			Case 6: IniWrite, %OutputVar%, %INI%, 高级设置, 切换重置大小写
 		}
 	}
 
@@ -2085,7 +2097,9 @@ BoundHotkey(BoundHotkey,Hotkey_Fun){ ;绑定特殊热键
 }
 
 Lable_Click_showSwitch: ; 左键点击提示
-	KeyWait, LButton, L
+	If WinActive("ahk_group Left_Mouse_ShowKBL_Up_WinGroup"){
+		KeyWait, LButton, L
+	}
 	SetTimer,SetTimer_Lable_Click_showSwitch,-20
 	Return
 
@@ -2113,6 +2127,13 @@ Remote_Dyna_Run(remoteRun){
 		return
 	}
 }
+
+Label_ClearMEM: ;清理内存
+    pid:=() ? DllCall("GetCurrentProcessId") : pid
+    h:=DllCall("OpenProcess", "UInt", 0x001F0FFF, "Int", 0, "Int", pid)
+    DllCall("SetProcessWorkingSetSize", "UInt", h, "Int", -1, "Int", -1)
+    DllCall("CloseHandle", "Int", h)
+Return
 
 Send_WM_COPYDATA(ByRef StringToSend, ByRef TargetScriptTitle, wParam:=0){
     VarSetCapacity(CopyDataStruct, 3*A_PtrSize, 0)  ; 分配结构的内存区域.

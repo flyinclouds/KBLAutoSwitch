@@ -30,7 +30,7 @@ Ahk版本: 1.1.33.10
 2. 右键 windows任务栏图标，打开设置选项进行设置
 3. 热键配置处设置 窗口添加移除快捷键
 4. 打开指定软件使用 3 中设置的快捷键添加移除
-5. 也可在中英窗口中手动添加窗口
+5. 特殊窗口也可在中英窗口中手动添加窗口
 
 #### 鼠标指针替换
 1. 打开Curs文件夹
@@ -39,19 +39,19 @@ Ahk版本: 1.1.33.10
     2. IBEAM_Cn_A 输入状态下中文大写
     3. IBEAM_En     输入状态下英文
     4. IBEAM_En_A 输入状态下大写
-    5. NORMAL_Cn     输入状态下中文
-    6. NORMAL_Cn_A 输入状态下中文大写
-    7. NORMAL_En     输入状态下英文
-    8. NORMAL_En_A 输入状态下大写
-    9. APPSTARTING, HAND, HELP, SIZEALL, SIZENESW, SIZENS, SIZENWSE, SIZEWE, WAIT
+    5. NORMAL_Cn     非输入状态下中文
+    6. NORMAL_Cn_A 非输入状态下中文大写
+    7. NORMAL_En     非输入状态下英文
+    8. NORMAL_En_A 非输入状态下大写
+    9. APPSTARTING, HAND, HELP, SIZEALL, SIZENESW, SIZENS, SIZENWSE, SIZEWE, WAIT 其他鼠标指针
 
 #### 软件输入法状态托盘图标替换
 1. 打开Icos文件夹
 2. 替换对应名称图标文件，支持以下名称
-    1. black_Cn     黑色主题中文
-    2. black_A_CN 黑色主题中文大写
-    3. black_En     黑色主题英文
-    4. black_A_EN  黑色主题英文大写
+    1. black_Cn     白色主题中文
+    2. black_A_CN 白色主题中文大写
+    3. black_En     白色主题英文
+    4. black_A_EN  白色主题英文大写
     5. white_Cn     黑色主题中文
     6. white_A_CN 黑色主题中文大写
     7. white_En     黑色主题英文
