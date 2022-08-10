@@ -3,13 +3,13 @@
 	作者: tong
 */
 
-Label_ScriptSetting: ;脚本前参数设置
+Label_ScriptSetting: ; 脚本前参数设置
 	Process, Priority, , Realtime					;脚本高优先级
 	#MenuMaskKey vkE8
 	#Persistent										;让脚本持久运行(关闭或ExitApp)
 	#SingleInstance Force							;允许多例运行，通过Single_Run限制单例
 	#WinActivateForce								;强制激活窗口
-	#MaxHotkeysPerInterval 200						;时间内按热键最大次数
+	#MaxHotkeysPerInterval 2000						;时间内按热键最大次数
 	#HotkeyModifierTimeout 100						;按住modifier后(不用释放后再按一次)可隐藏多个当前激活窗口
 	SetBatchLines, -1								;脚本全速执行
 	SetControlDelay -1								;控件修改命令自动延时,-1无延时，0最小延时
@@ -21,35 +21,34 @@ Label_ScriptSetting: ;脚本前参数设置
 	DetectHiddenWindows on							;显示隐藏窗口
 	SetWorkingDir, %A_ScriptDir%
 
-Label_DefVar: ;初始化变量
-	global ScriptIniting := 1 ;脚本启动中
-	;设置初始化变量，用于读取并保存INI配置文件参数
-	global INI := A_ScriptDir "\KBLAutoSwitch.ini"
+Label_DefVar: ; 初始化变量
+	global ScriptIniting := 1 ; 脚本初始化中
+	global AutoSwitchFrequency := 0 ; 自动切换次数统计
+	global INI := A_ScriptDir "\KBLAutoSwitch.ini" ; 配置文件
 	global APPName := "KBLAutoSwitch"
-	global APPVersion := "2.2.2"
+	global APPVersion := "2.3.0"
 	global APPType := RegExMatch(APPVersion, "\d*\.\d*\.\d*\.\d*")?"（测试版）":"",APPVersion := APPVersion APPType
-	;基础变量
-	global shell_msg_num := 0		;接受窗口切换等消息
-	global State_ShowTime := 1000
-	;固定变量初始化
-	global CN_Code:=0x804,EN_Code:=0x409
-	global Display_Cn := "中",Display_CnEn := "英",Display_En := "En"
-	global Auto_Reload_MTime:=2000
-	;INI配置文件参数变量初始化
-	global Auto_Launch,Launch_Admin,Auto_Switch,Default_Keyboard,Switch_Model
-	global Gui_OnOff,Gui_Display_Time,Gui_Font_Size,Gui_Font_Transparency,Gui_X_Pos_Coef,Gui_Y_Pos_Coef
-	global TT_OnOff,TT_Display_Time,TT_Font_Size,TT_Font_Transparency,TT_Pos,TT_X_Shift,TT_Y_Shift
-	global Tray_Display,Tray_Display_KBL,Double_Click_Open_KBL
-	global Disable_HotKey_App_List,Disable_Switch_App_List
-	global Cur_Launch,Cur_Format,Cur_Size
+	; 固定变量初始化
+	global State_ShowTime := 1000 ; 信息提示时间
+	global FontType := "Microsoft YaHei" ; 字体类型
+	global CN_Code:=0x804,EN_Code:=0x409 ; KBL代码
+	global Display_Cn := "中",Display_CnEn := "英",Display_En := "En" ; KBL提示信息
+	global Auto_Reload_MTime:=2000 ; 自动重载时间
+	; 创建INI配置文件参数变量
+	global Auto_Launch,Launch_Admin,Auto_Switch,Default_Keyboard
+	global TT_OnOff_Style,TT_Display_Time,TT_Font_Size,TT_Transparency,TT_Shift,TT_Pos_Coef
+	global Tray_Display,Tray_Display_KBL,Tray_Double_Click,Tray_Display_Style
+	global Disable_HotKey_App_List,Disable_Switch_App_List,Disable_TTShow_App_List
+	global Cur_Launch,Cur_Launch_Style,Cur_Size
 	global Hotkey_Add_To_Cn,Hotkey_Add_To_CnEn,Hotkey_Add_To_En,Hotkey_Remove_From_All
-	global Hotkey_Set_Chinese,Hotkey_Set_ChineseEnglish,Hotkey_Set_English,Hotkey_Display_KBL,Hotkey_Reset_KBL,Hotkey_toggle_CN_CNEN,Hotkey_toggle_CN_EN
+	global Hotkey_Set_Chinese,Hotkey_Set_ChineseEnglish,Hotkey_Set_English,Hotkey_Display_KBL,Hotkey_Reset_KBL,Hotkey_Toggle_CN_CNEN,Hotkey_Toggle_CN_EN
 	global Hotkey_Stop_KBLAS,Hotkey_Get_KeyBoard
 	global Hotkey_Left_Shift,Hotkey_Right_Shift,Hotkey_Left_Ctrl,Hotkey_Right_Ctrl,Hotkey_Left_Alt,Hotkey_Right_Alt
-	global Open_Ext,Outer_InputKey_Compatible,ShowSwitch_Pos,Left_Mouse_ShowKBL,Left_Mouse_ShowKBL_Up,SetTimer_Reset_KBL,Reset_CapsLock,Enter_Inputing_Content,GuiTTColor
+	global Open_Ext,Outer_InputKey_Compatible,Left_Mouse_ShowKBL,Left_Mouse_ShowKBL_Up,SetTimer_Reset_KBL,Reset_CapsLock,Enter_Inputing_Content,GuiTTColor,TrayTipContent
 	global Custom_Win_Group,Custom_Hotstring
+	global INI_CN,INI_CNEN,INI_EN
 
-Label_AdminLaunch: ;管理员启动,保证管理员权限软件也可生效
+Label_AdminLaunch: ; 管理员启动
 	iniread, Launch_Admin, %INI%, 基本设置, 管理员启动, 1
 	if (!A_IsAdmin && Launch_Admin=1)
 	{
@@ -72,8 +71,7 @@ Label_AdminLaunch: ;管理员启动,保证管理员权限软件也可生效
 	    ExitApp
 	}
 
-Label_SystemVersion: ;获取win系统版本
-	global AppStartTime := A_YYYY "/" A_MM "/" A_DD "  " A_Hour ":" A_Min ":" A_Sec
+Label_SystemVersion: ; 获取win系统版本
 	global OSVersion := StrReplace(A_OSVersion, ".")
 	If (OSVersion="WIN_7")
 		OSVersion := 7
@@ -84,8 +82,8 @@ Label_SystemVersion: ;获取win系统版本
 	Else
 		OSVersion := 0
 
-Label_WindowsMonitor: ;获取windows显示器信息
-	OnMessage(0x007E, "Monitor_Change")
+Label_WindowsMonitor: ; 获取windows显示器信息
+	OnMessage(0x007E, "monitorChange")
 	SysGet, MonitorCount, MonitorCount
 	global MonitorAreaObjects := Object()
 	Loop, %MonitorCount%
@@ -100,11 +98,12 @@ Label_WindowsMonitor: ;获取windows显示器信息
 	    MonitorAreaObjects[A_Index] := MonitorAreaObject
 	}
 
-Label_SystemVersion_Var: ;win系统版本对应变量
+Label_SystemVersion_Var: ; 设置win系统版本对应变量
 	global Ico_path := Object()
 	global Ico_num := Object()
 	If (OSVersion=10){
 		Ico_path["关闭菜单"] := "imageres.dll",Ico_num["关闭菜单"] := 233
+		Ico_path["帮助文档"] := "imageres.dll",Ico_num["帮助文档"] := 100
 		Ico_path["语言首选项"] := "imageres.dll",Ico_num["语言首选项"] := 110
 		Ico_path["设置"] := "shell32.dll",Ico_num["设置"] := 317
 		Ico_path["关于"] := "imageres.dll",Ico_num["关于"] := 77
@@ -113,6 +112,7 @@ Label_SystemVersion_Var: ;win系统版本对应变量
 		Ico_path["退出"] := "imageres.dll",Ico_num["退出"] := 230
 	}Else If (OSVersion=11){
 		Ico_path["关闭菜单"] := "imageres.dll",Ico_num["关闭菜单"] := 234
+		Ico_path["帮助文档"] := "imageres.dll",Ico_num["帮助文档"] := 110
 		Ico_path["语言首选项"] := "imageres.dll",Ico_num["语言首选项"] := 110
 		Ico_path["设置"] := "shell32.dll",Ico_num["设置"] := 315
 		Ico_path["关于"] := "imageres.dll",Ico_num["关于"] := 77
@@ -121,6 +121,7 @@ Label_SystemVersion_Var: ;win系统版本对应变量
 		Ico_path["退出"] := "imageres.dll",Ico_num["退出"] := 231
 	}Else If (OSVersion=7){
 		Ico_path["关闭菜单"] := "imageres.dll",Ico_num["关闭菜单"] := 102
+		Ico_path["帮助文档"] := "imageres.dll",Ico_num["帮助文档"] := 110
 		Ico_path["语言首选项"] := "imageres.dll",Ico_num["语言首选项"] := 110
 		Ico_path["设置"] := "imageres.dll",Ico_num["设置"] := 64
 		Ico_path["关于"] := "imageres.dll",Ico_num["关于"] := 77
@@ -129,6 +130,7 @@ Label_SystemVersion_Var: ;win系统版本对应变量
 		Ico_path["退出"] := "shell32.dll",Ico_num["退出"] := 216
 	}Else If (OSVersion=0){
 		Ico_path["关闭菜单"] := "shell32.dll",Ico_num["关闭菜单"] := 3
+		Ico_path["帮助文档"] := "shell32.dll",Ico_num["帮助文档"] := 3
 		Ico_path["语言首选项"] := "shell32.dll",Ico_num["语言首选项"] := 3
 		Ico_path["设置"] := "shell32.dll",Ico_num["设置"] := 3
 		Ico_path["关于"] := "shell32.dll",Ico_num["关于"] := 3
@@ -137,7 +139,7 @@ Label_SystemVersion_Var: ;win系统版本对应变量
 		Ico_path["退出"] := "shell32.dll",Ico_num["退出"] := 3
 	}
 
-Label_KBLDetect: ;从注册表检测KBL
+Label_KBLDetect: ; 从注册表检测KBL
 	KBLObj := Object()
 	Loop, Reg, HKEY_CURRENT_USER\Keyboard Layout\Preload, V
 	{
@@ -155,42 +157,36 @@ Label_KBLDetect: ;从注册表检测KBL
 		ExitApp
 	}
 
-Label_ReadINI: ;读取INI配置文件
-	;配置文件不存在则初始化INI配置文件，存在则检测下是否是最新的配置文件版本
+Label_ReadINI: ; 读取INI配置文件
 	if !FileExist(INI)
-		initINI()
-	;读取基本配置
+		Gosub,Label_Init_INI
+
+	; 读取基本设置
 	iniread, Auto_Launch, %INI%, 基本设置,开机自启, 0
 	iniread, Auto_Switch, %INI%, 基本设置, 自动切换, 1
 	iniread, Default_Keyboard, %INI%, 基本设置, 默认输入法, 1
-	iniread, Switch_Model, %INI%, 基本设置,切换模式, 1
 
-	iniread, Gui_OnOff, %INI%, 基本设置, Gui切换提示, 1
-	iniread, Gui_Display_Time, %INI%, 基本设置, Gui切换提示时间, 1500
-	iniread, Gui_Font_Size, %INI%, 基本设置, Gui切换提示文字大小, 32
-	iniread, Gui_Font_Transparency, %INI%, 基本设置, Gui切换提示透明度, 235
-	iniread, Gui_X_Pos_Coef, %INI%, 基本设置, Gui切换提示水平位置, 87
-	iniread, Gui_Y_Pos_Coef, %INI%, 基本设置, Gui切换提示垂直位置, 87
-
-	iniread, TT_OnOff, %INI%, 基本设置, ToolTip切换提示, 1
-	iniread, TT_Display_Time, %INI%, 基本设置, ToolTip切换提示时间, 1500
-	iniread, TT_Font_Size, %INI%, 基本设置, ToolTip切换提示文字大小, 11
-	iniread, TT_Font_Transparency, %INI%, 基本设置, ToolTip切换提示透明度, 235
-	iniread, TT_X_Shift, %INI%, 基本设置, ToolTip切换提示水平偏移, 0
-	iniread, TT_Y_Shift, %INI%, 基本设置, ToolTip切换提示垂直偏移, 0
-	iniread, ShowSwitch_Pos, %INI%, 基本设置, 切换提示位置, 1
-
+	iniread, TT_OnOff_Style, %INI%, 基本设置, 切换提示, 4
+	iniread, TT_Display_Time, %INI%, 基本设置, 切换提示时间, 1500
+	iniread, TT_Font_Size, %INI%, 基本设置, 切换提示文字大小, 15,30
+	iniread, TT_Transparency, %INI%, 基本设置, 切换提示透明度, 235,180
+	iniread, TT_Shift, %INI%, 基本设置, 切换提示偏移, 0,0
+	iniread, TT_Pos_Coef, %INI%, 基本设置, 切换提示固定位置, 50,30
 
 	iniread, Tray_Display, %INI%, 基本设置,托盘图标显示, 1
-	iniread, Tray_Display_KBL, %INI%, 基本设置,图标显示输入法, 1
-	iniread, Double_Click_Open_KBL, %INI%, 基本设置,双击托盘图标, 2
+	iniread, Tray_Double_Click, %INI%, 基本设置,托盘图标双击, 2
+	iniread, Tray_Display_KBL, %INI%, 基本设置,托盘图标显示输入法, 1
+	iniread, Tray_Display_Style, %INI%, 基本设置,托盘图标样式, 原版
 	iniread, Cur_Launch, %INI%, 基本设置,鼠标指针显示输入法, 1
-	iniread, Cur_Format, %INI%, 基本设置,鼠标指针格式, 0
+	iniread, Cur_Launch_Style, %INI%, 基本设置,鼠标指针样式, 原版
 	iniread, Cur_Size, %INI%, 基本设置,鼠标指针对应分辨率, 0
-	iniread, Disable_HotKey_App_List, %INI%, 基本设置,热键屏蔽程序列表, %A_Space%
-	iniread, Disable_Switch_App_List, %INI%, 基本设置,切换屏蔽程序列表, %A_Space%
 
-	;读取热键
+	; 读取屏蔽窗口列表
+	iniread, Disable_HotKey_App_List, %INI%, 热键屏蔽窗口列表
+	iniread, Disable_Switch_App_List, %INI%, 切换屏蔽窗口列表
+	iniread, Disable_TTShow_App_List, %INI%, 切换提示屏蔽窗口列表
+
+	; 读取热键
 	iniread, Hotkey_Add_To_Cn, %INI%, 热键设置,添加至中文窗口, %A_Space%
 	iniread, Hotkey_Add_To_CnEn, %INI%, 热键设置,添加至英文(中文)窗口, %A_Space%
 	iniread, Hotkey_Add_To_En, %INI%, 热键设置,添加至英文输入法窗口, %A_Space%
@@ -199,14 +195,14 @@ Label_ReadINI: ;读取INI配置文件
 	iniread, Hotkey_Set_Chinese, %INI%, 热键设置,切换中文, %A_Space%
 	iniread, Hotkey_Set_ChineseEnglish, %INI%, 热键设置,切换英文(中文), %A_Space%
 	iniread, Hotkey_Set_English, %INI%, 热键设置,切换英文输入法, %A_Space%
-	iniread, Hotkey_toggle_CN_CNEN, %INI%, 热键设置,切换中英文(中文), %A_Space%
-	iniread, Hotkey_toggle_CN_EN, %INI%, 热键设置,切换中英文输入法, %A_Space%
+	iniread, Hotkey_Toggle_CN_CNEN, %INI%, 热键设置,切换中英文(中文), %A_Space%
+	iniread, Hotkey_Toggle_CN_EN, %INI%, 热键设置,切换中英文输入法, %A_Space%
 	iniread, Hotkey_Display_KBL, %INI%, 热键设置,显示当前输入法, %A_Space%
 	iniread, Hotkey_Reset_KBL, %INI%, 热键设置,重置当前输入法, %A_Space%
 	iniread, Hotkey_Stop_KBLAS, %INI%, 热键设置,停止自动切换, %A_Space%
 	iniread, Hotkey_Get_KeyBoard, %INI%, 热键设置,获取输入法IME代码, %A_Space%
 
-	;读取特殊热键
+	; 读取特殊热键
 	iniread, Hotkey_Left_Shift, %INI%, 特殊热键,左Shift, 1
 	iniread, Hotkey_Right_Shift, %INI%, 特殊热键,右Shift, 2
 	iniread, Hotkey_Left_Ctrl, %INI%, 特殊热键,左Ctrl, 0
@@ -214,7 +210,7 @@ Label_ReadINI: ;读取INI配置文件
 	iniread, Hotkey_Left_Alt, %INI%, 特殊热键,左Alt, 0
 	iniread, Hotkey_Right_Alt, %INI%, 特殊热键,右Alt, 0
 	
-	;读取高级设置
+	; 读取高级设置
 	iniread, Open_Ext, %INI%, 高级设置, 内部关联, %A_Space%
 	iniread, Outer_InputKey_Compatible, %INI%, 高级设置, 快捷键兼容, 1
 	iniread, Left_Mouse_ShowKBL, %INI%, 高级设置, 左键点击输入位置显示输入法状态, 1|全局窗口
@@ -222,18 +218,22 @@ Label_ReadINI: ;读取INI配置文件
 	iniread, SetTimer_Reset_KBL, %INI%, 高级设置, 定时重置输入法, 60|编辑器
 	iniread, Reset_CapsLock, %INI%, 高级设置, 切换重置大小写, 1
 	iniread, Enter_Inputing_Content, %INI%, 高级设置, 上屏字符内容, 2
-	iniread, GuiTTColor, %INI%, 高级设置, 提示颜色, 333434|02ecfb|ff0000
+	iniread, GuiTTColor, %INI%, 高级设置, 提示颜色, 333434|dfe3e3|02ecfb|ff0000
+	iniread, TrayTipContent, %INI%, 高级设置, 托盘提示内容, %A_Space%
 
-	;读取自定义窗口组
+	; 读取自定义窗口组和自定义操作
 	iniread, Custom_Win_Group, %INI%, 自定义窗口组
 	iniread, Custom_Hotstring, %INI%, 自定义操作
 	
-	;读取分组
+	; 读取分组
 	iniread, INI_CN, %INI%, 中文窗口
-	IniRead, INI_EN, %INI%, 英文窗口
-	IniRead, INI_ENEN, %INI%, 英文输入法窗口
+	IniRead, INI_CNEN, %INI%, 英文窗口
+	IniRead, INI_EN, %INI%, 英文输入法窗口
 	IniRead, INI_Focus_Control, %INI%, 焦点控件切换窗口
-	;自定义窗口组
+
+	; 设置自定义窗口组
+	global WinMenuObj := Object()
+	global Custom_Win_Group_Cn,Custom_Win_Group_CnEn,Custom_Win_Group_En
 	global groupNameList := "无",groupNameObj := Object(),groupNumObj := Object()
 	groupNameObj["无"] := 0
 	groupNumObj[0] := "无"
@@ -250,7 +250,8 @@ Label_ReadINI: ;读取INI配置文件
 		getINISwitchWindows(groupVal,groupName,"|")
 	}
 
-If (Auto_Switch=1){
+	; 设置自动切换输入法窗口组
+If (Auto_Switch=1) { 
 	Loop, parse, Custom_Win_Group, `n, `r
 	{
 		MyVar := StrSplit(Trim(A_LoopField), "=")
@@ -260,56 +261,67 @@ If (Auto_Switch=1){
 		groupVal := MyVar[4]
 		Switch groupState
 		{
-			Case 1: GroupAdd, cn_ahk_group, ahk_group%A_Space%%groupName%
-			Case 2: GroupAdd, en_ahk_group, ahk_group%A_Space%%groupName%
-			Case 3: GroupAdd, enen_ahk_group, ahk_group%A_Space%%groupName%
+			Case 1: 
+				{
+					GroupAdd, cn_ahk_group_custom, ahk_group%A_Space%%groupName%
+					Custom_Win_Group_Cn .= "`n-" groupName
+				}
+			Case 2:
+				{
+					GroupAdd, cnen_ahk_group_custom, ahk_group%A_Space%%groupName%
+					Custom_Win_Group_CnEn .= "`n-" groupName
+				}
+			Case 3:
+				{
+					GroupAdd, en_ahk_group_custom, ahk_group%A_Space%%groupName%
+					Custom_Win_Group_En .= "`n-" groupName
+				}
 		}
+		Custom_Win_Group_Cn := Trim(Custom_Win_Group_Cn," `t`n")
+		Custom_Win_Group_CnEn := Trim(Custom_Win_Group_CnEn," `t`n")
+		Custom_Win_Group_En := Trim(Custom_Win_Group_En," `t`n")
 	}
 
-	;分组配置-中文窗口
-	getINISwitchWindows(INI_CN,"cn_ahk_group") ;中文输入法中文模式窗口
-	getINISwitchWindows(INI_EN,"en_ahk_group")  ;中文输入法英文文模式窗口
-	If (KBLEnglish_Exist=0 && Switch_Model=1)
-		getINISwitchWindows(INI_ENEN,"en_ahk_group") ;英文输入法窗口
+	getINISwitchWindows(INI_CN,"cn_ahk_group") ; 中文输入法中文模式窗口
+	getINISwitchWindows(INI_CNEN,"cnen_ahk_group")  ; 中文输入法英文文模式窗口
+	If (KBLEnglish_Exist=0)
+		getINISwitchWindows(INI_EN,"cnen_ahk_group") ; 英文输入法窗口
 	Else
-		getINISwitchWindows(INI_ENEN,"enen_ahk_group") ;英文输入法窗口
+		getINISwitchWindows(INI_EN,"en_ahk_group") ; 英文输入法窗口
 	;-------------------------------------------------------
-	;焦点控件切换窗口
+	; 焦点控件切换窗口组、不切换窗口组
 	getINISwitchWindows(INI_Focus_Control,"focus_control_ahk_group")
-	;不切换窗口，为微软内部窗口，与上一个窗口输入法保持一致，可提高使用体验
-	;任务栏、窗口切换等
-	GroupAdd, unswitch_ahk_group, ahk_class tooltips_class32 ;任务栏小箭头
 
+	GroupAdd, unswitch_ahk_group, ahk_class tooltips_class32 ; 任务栏小箭头
 	GroupAdd, unswitch_ahk_group_after, ahk_class Qt5QWindowToolSaveBits
 	GroupAdd, unswitch_ahk_group_after, ahk_class Windows.UI.Core.CoreWindow
 	GroupAdd, unswitch_ahk_group_after, ahk_exe HipsTray.exe
 	GroupAdd, unswitch_ahk_group_after, ahk_exe rundll32.exe
+	GroupAdd, unswitch_ahk_group_before, ahk_class MultitaskingViewFrame ; alt+tab切换
+	GroupAdd, unswitch_ahk_group_before, ahk_class TaskListThumbnailWnd ; 窗口缩略图
+	GroupAdd, unswitch_ahk_group_before, ahk_class Shell_TrayWnd ; 任务栏
+	GroupAdd, unswitch_ahk_group_before, ahk_class NotifyIconOverflowWindow ; 任务栏小箭头
 
-	GroupAdd, unswitch_ahk_group_before, ahk_class MultitaskingViewFrame
-	GroupAdd, unswitch_ahk_group_before, ahk_class TaskListThumbnailWnd ;alt+tab切换
-	GroupAdd, unswitch_ahk_group_before, ahk_class Shell_TrayWnd ;任务栏
-	GroupAdd, unswitch_ahk_group_before, ahk_class NotifyIconOverflowWindow ;任务栏小箭头
-	;默认焦点控件切换窗口：uwp、资源管理器
-	GroupAdd, focus_control_ahk_group, ahk_exe ApplicationFrameHost.exe
-	GroupAdd, focus_control_ahk_group, ahk_exe explorer.exe
-	;获取输入光标位置sleep组
-	GroupAdd, GetCaretSleep_ahk_group, ahk_class Chrome_WidgetWin_1
-	;输入法输入候选窗口
+	GroupAdd, focus_control_ahk_group, ahk_exe ApplicationFrameHost.exe ; uwp应用
+	GroupAdd, focus_control_ahk_group, ahk_exe explorer.exe ; 文件资源管理器
+	
+	; 获取输入光标位置sleep组
+	GroupAdd, GetCaretSleep_ahk_group, ahk_class Chrome_WidgetWin_1 ; Chromium类应用
+	
+	; 输入法输入候选窗口
 	GroupAdd, IMEInput_ahk_group, ahk_class SoPY_Comp			; 搜狗输入法
 	GroupAdd, IMEInput_ahk_group, ahk_class QQWubiCompWndII		; QQ五笔输入法
 	GroupAdd, IMEInput_ahk_group, ahk_class QQPinyinCompWndTSF	; QQ拼音输入法
 	GroupAdd, IMEInput_ahk_group, ahk_class PalmInputUICand 	; 手心输入法
 }
 
-Label_DropDownListData:
-	global OnOffState := "禁止|开启"
-	global KBLSwitchState := "无|中文|英文(中文)|英文"
-	global TrayFuncState := "无|语言首选项|设置|停止"
-	global OperationState := "无|切换至中文|切换至英文(中文)|切换至英文输入法|切换中英文(中文)|切换中英文输入法|重置输入法"
-	global ListViewKBLState := "无|中|英(中)|英"
-	global DefaultCapsLockState := "无|小写|大写"
 
-Label_Hotstring: ;自定义操作
+Label_DisableAppList: ; 读取屏蔽窗口列表
+	getINISwitchWindows(Disable_HotKey_App_List,"DisableHotKeyAppList_ahk_group") ; 热键屏蔽
+	getINISwitchWindows(Disable_Switch_App_List,"DisableSwitchAppList_ahk_group") ; 切换屏蔽
+	getINISwitchWindows(Disable_TTShow_App_List,"DisableTTShowAppList_ahk_group") ; 切换提示屏蔽
+
+Label_Hotstring: ; 自定义操作
 	global TarFunList := Object(),TarHotFunFlag := 0
 	Loop, parse, Custom_Hotstring, `n, `r
 	{
@@ -328,48 +340,45 @@ Label_Hotstring: ;自定义操作
 		}
 	}
 
-Label_ReadExtRunList: ;读取内部关联
+Label_ReadExtRunList: ; 读取内部关联
 	If (Open_Ext!=""){
-		global openExtRunList := Object() ;内部关联路径加参数
-    	global openExtRunList_Parm := Object() ;内部关联参数
-    	global openExtRunList_num := ReadExtRunList(Open_Ext,"ini|folder") ;读取内部关联返回数量
+		global openExtRunList := Object() ; 内部关联路径加参数
+    	global openExtRunList_Parm := Object() ; 内部关联参数
+    	global openExtRunList_num := ReadExtRunList(Open_Ext,"ini|folder") ; 读取内部关联返回数量
 	}  
 
-Label_IcoLaunch: ;根据Win主题设置图标所在路径
+Label_IcoLaunch: ; 根据Win明暗主题设置图标所在路径
+	Gosub, Label_ReadExistIcoStyles
 	global SystemUsesLightTheme
 	RegRead, SystemUsesLightTheme, HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize, SystemUsesLightTheme
+	SystemUsesLightTheme_Str := SystemUsesLightTheme=0?"black":"white"
 	If (Tray_Display=1 && Tray_Display_KBL=1){
-		If (SystemUsesLightTheme=0){
-			ACNico_path = %A_ScriptDir%\Icos\white_A_CN.ico
-			AENico_path = %A_ScriptDir%\Icos\white_A_EN.ico
-			CNico_path = %A_ScriptDir%\Icos\white_Cn.ico
-			CNENico_path = %A_ScriptDir%\Icos\white_CnEn.ico
-			ENico_path = %A_ScriptDir%\Icos\white_En.ico	
-		}Else{
-			ACNico_path = %A_ScriptDir%\Icos\black_A_CN.ico
-			AENico_path = %A_ScriptDir%\Icos\black_A_EN.ico
-			CNico_path = %A_ScriptDir%\Icos\black_Cn.ico
-			CNENico_path = %A_ScriptDir%\Icos\black_CnEn.ico
-			ENico_path = %A_ScriptDir%\Icos\black_En.ico	
-		}
+		ACNico_path = %A_ScriptDir%\Icos\%Tray_Display_Style%\%SystemUsesLightTheme_Str%_A_CN.ico
+		AENico_path = %A_ScriptDir%\Icos\%Tray_Display_Style%\%SystemUsesLightTheme_Str%_A_EN.ico
+		CNico_path = %A_ScriptDir%\Icos\%Tray_Display_Style%\%SystemUsesLightTheme_Str%_Cn.ico
+		CNENico_path = %A_ScriptDir%\Icos\%Tray_Display_Style%\%SystemUsesLightTheme_Str%_CnEn.ico
+		ENico_path = %A_ScriptDir%\Icos\%Tray_Display_Style%\%SystemUsesLightTheme_Str%_En.ico	
+		global ACNIcon := LoadPicture(ACNico_path,,ImageType)
+		global AENIcon := LoadPicture(AENico_path,,ImageType)
+		global CNIcon := LoadPicture(CNico_path,,ImageType)
+		global CNENIcon := LoadPicture(CNENico_path,,ImageType)
+		global ENIcon := LoadPicture(ENico_path,,ImageType)
 	}
 
-Label_CurLaunch: ;鼠标指针初始化
-	global ExistCurSize := "" ;鼠标指针分辨率字符串
-	Loop Files, %A_ScriptDir%\Curs\*, D
+Label_CurLaunch: ; 鼠标指针初始化
+	Gosub, Label_ReadExistCurStyles
+	global ExistCurSize := "" ; 鼠标指针分辨率字符串
+	Loop Files, %A_ScriptDir%\Curs\%Cur_Launch_Style%\*, D
 		ExistCurSize := ExistCurSize "|" A_LoopFileName
 	If (Cur_Launch=1){
 		global OCR_IBEAM := 32513,OCR_NORMAL := 32512,OCR_APPSTARTING := 32650,OCR_WAIT := 32514,OCR_HAND := 32649
 		global OCR_CROSS:=32515,OCR_HELP:=32651,OCR_NO:=32648,OCR_UP:=32516
 		global OCR_SIZEALL:=32646,OCR_SIZENESW:=32643,OCR_SIZENS:=32645,OCR_SIZENWSE:=32642,OCR_SIZEWE:=32644
-		Cur_Suffix := "ani"
-		If (Cur_Format=0)
-			Cur_Suffix := "cur"
 		global 	CurPathObjs := Object()
 		Loop, % MonitorAreaObjects.Length(){
 			WindowsHeight := MonitorAreaObjects[A_Index][5]
 			realWindowsHeight := WindowsHeight
-			If (!FileExist(A_ScriptDir "\Curs\" realWindowsHeight)){
+			If (!FileExist(A_ScriptDir "\Curs\" Cur_Launch_Style "\" realWindowsHeight)){
 				Loop, parse, ExistCurSize, |
 				{
 					If (A_Index=1)
@@ -387,38 +396,34 @@ Label_CurLaunch: ;鼠标指针初始化
 		}
 		For k, v in CurPathObjs{
 			CurPathObj := Object()
-			CurPathObj[1] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\IBEAM_Cn_A." Cur_Suffix
-			CurPathObj[2] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\IBEAM_En_A." Cur_Suffix
-			CurPathObj[3] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\IBEAM_Cn." Cur_Suffix
-			CurPathObj[4] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\IBEAM_En." Cur_Suffix
-			CurPathObj[5] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\NORMAL_Cn_A." Cur_Suffix
-			CurPathObj[6] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\NORMAL_En_A." Cur_Suffix
-			CurPathObj[7] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\NORMAL_Cn." Cur_Suffix
-			CurPathObj[8] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\NORMAL_En." Cur_Suffix
-			CurPathObj[9] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\APPSTARTING." Cur_Suffix
-			CurPathObj[10] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\WAIT." Cur_Suffix
-			CurPathObj[11] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\HAND." Cur_Suffix
+			CurPathObj[1] := getCurPath(Cur_Launch_Style,k,"IBEAM_Cn_A")
+			CurPathObj[2] := getCurPath(Cur_Launch_Style,k,"IBEAM_En_A")
+			CurPathObj[3] := getCurPath(Cur_Launch_Style,k,"IBEAM_Cn")
+			CurPathObj[4] := getCurPath(Cur_Launch_Style,k,"IBEAM_En")
+			CurPathObj[5] := getCurPath(Cur_Launch_Style,k,"NORMAL_Cn_A")
+			CurPathObj[6] := getCurPath(Cur_Launch_Style,k,"NORMAL_En_A")
+			CurPathObj[7] := getCurPath(Cur_Launch_Style,k,"NORMAL_Cn")
+			CurPathObj[8] := getCurPath(Cur_Launch_Style,k,"NORMAL_En")
+			CurPathObj[9] := getCurPath(Cur_Launch_Style,k,"APPSTARTING")
+			CurPathObj[10] := getCurPath(Cur_Launch_Style,k,"WAIT")
+			CurPathObj[11] := getCurPath(Cur_Launch_Style,k,"HAND")
 			
-			CurPathObj[12] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\CROSS." Cur_Suffix
-			CurPathObj[13] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\HELP." Cur_Suffix
-			CurPathObj[14] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\NO." Cur_Suffix
-			CurPathObj[15] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\UP." Cur_Suffix
+			CurPathObj[12] := getCurPath(Cur_Launch_Style,k,"CROSS")
+			CurPathObj[13] := getCurPath(Cur_Launch_Style,k,"HELP")
+			CurPathObj[14] := getCurPath(Cur_Launch_Style,k,"NO")
+			CurPathObj[15] := getCurPath(Cur_Launch_Style,k,"UP")
 
-			CurPathObj[16] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\SIZEALL." Cur_Suffix
-			CurPathObj[17] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\SIZENESW." Cur_Suffix
-			CurPathObj[18] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\SIZENS." Cur_Suffix
-			CurPathObj[19] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\SIZENWSE." Cur_Suffix
-			CurPathObj[20] := A_ScriptDir "\Curs\" k "\" Cur_Suffix "\SIZEWE." Cur_Suffix
+			CurPathObj[16] := getCurPath(Cur_Launch_Style,k,"SIZEALL")
+			CurPathObj[17] := getCurPath(Cur_Launch_Style,k,"SIZENESW")
+			CurPathObj[18] := getCurPath(Cur_Launch_Style,k,"SIZENS")
+			CurPathObj[19] := getCurPath(Cur_Launch_Style,k,"SIZENWSE")
+			CurPathObj[20] := getCurPath(Cur_Launch_Style,k,"SIZEWE")
 			
 			CurPathObjs[k] := CurPathObj
 		}
-	}	
+	}
 
-Label_DisableAppList: ;读取屏蔽程序列表
-	getINISwitchWindows(Trim(Disable_HotKey_App_List, "|"),"DisableHotKeyAppList_ahk_group","|")
-	getINISwitchWindows(Trim(Disable_Switch_App_List, "|"),"DisableSwitchAppList_ahk_group","|")
-
-Label_AutoRun: ;判断是否开机自启
+Label_AutoRun: ; 判断是否开机自启
 	SplitPath, A_ScriptName , , , , OutNameNoExt
 	RegRead, Auto_Launch_reg, HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run, %OutNameNoExt%
 	Auto_Launch_reg := Auto_Launch_reg=A_ScriptDir "\" OutNameNoExt ".exe" ? 1 : 0
@@ -429,38 +434,46 @@ Label_AutoRun: ;判断是否开机自启
 		}Else{
 			RegDelete, HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run, %OutNameNoExt%
 		}
-	}
+	}	
 
-Label_Detection: ;运行前检测
-	If (Tray_Display=1 && Tray_Display_KBL=1 && (!FileExist(ACNico_path) || !FileExist(CNENico_path) || !FileExist(AENico_path) || !FileExist(CNico_path) || !FileExist(ENico_path))){
-		MsgBox, 用于显示输入法的【托盘图标】文件（Ico文件夹中）不存在，`n托盘图标将不显示输入法状态！`n解决办法（选择其中一项）：`n1.下载本软件，重新将Icos文件夹覆盖`n2.检查Icos文件夹中缺少的图标文件，添加自定义托盘图标`n3.点击确定，不使用图标显示输入法功能`n`n！！！已关闭图标显示输入法功能，后续不再提醒`n！！！通过设置-基础设置2-图标显示输入法可再次开启图标显示输入法功能
-		Run, % A_ScriptDir "\Icos"
-		IniWrite, 0, %INI%, 基本设置, 图标显示输入法
-		Gosub,Menu_Reload
-	}Else If (Tray_Display_KBL=1){
-		global ACNIcon := LoadPicture(ACNico_path,,ImageType)
-		global AENIcon := LoadPicture(AENico_path,,ImageType)
-		global CNIcon := LoadPicture(CNico_path,,ImageType)
-		global CNENIcon := LoadPicture(CNENico_path,,ImageType)
-		global ENIcon := LoadPicture(ENico_path,,ImageType)
-	}
-
-Label_Init: ;初始化
-	global TT_X_Shift_Real,TT_Y_Shift_Real
-	GuiTTColorObj := StrSplit(GuiTTColor, "|")
-	global GuiTTBackColor:=GuiTTColorObj[1],GuiTTCnColor:=GuiTTColorObj[2],GuiTTEnColor:=GuiTTColorObj[3]
-	initGui() 		;初始化切换显示GUI
-	initResetINI()  ;记录ini文件修改时间，定时检测配置文件
+Label_NecessaryVar:	; 定义必要变量
+	global SwitchTT_id,TT_Edit_Hwnd,TT_Edit_Hwnd1 ; Gui和控件句柄
+	global LastKBLState,LastCapsState,LastMonitorNum,gl_Active_IMEwin_id ; 前一个KBL、大小写、屏幕编号状态，及激活窗口IME句柄
+	GuiTTColorObj := StrSplit(GuiTTColor, "|") ; Gui颜色
+	global GuiTTBackCnColor:=GuiTTColorObj[1],GuiTTBackEnColor:=GuiTTColorObj[2],GuiTTCnColor:=GuiTTColorObj[3],GuiTTEnColor:=GuiTTColorObj[4]
 	global ImmGetDefaultIMEWnd := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "imm32", "Ptr"), "AStr", "ImmGetDefaultIMEWnd", "Ptr")
+	
+	; 自定义变量
+	global 启动时间 := A_YYYY "/" A_MM "/" A_DD "  " A_Hour ":" A_Min ":" A_Sec
+	global 权限 := A_IsAdmin=1?"管理员":"非管理员"
+	global 版本 := APPVersion
 
-Label_NecessaryVar:	;必要变量
-	global SwitchGui_id,Gui_Edit_Hwnd,Gui_Edit_Hwnd1,SwitchTT_id,TT_Edit_Hwnd,TT_Edit_Hwnd1
-	global LastKBLState,LastCapsState,LastMonitorNum,gl_Active_IMEwin_id
-	dpi_screen := getDisplayPos(Gui_X_Pos_Coef,Gui_Y_Pos_Coef) ;获取输入法切换显示GUI位置
-	global Gui_X_Pos := dpi_screen[0]
-	global Gui_Y_Pos := dpi_screen[1]
+Label_DropDownListData: ; 下拉列表数据
+	global OnOffState := "禁止|开启"
+	global KBLSwitchState := "无|中文|英文(中文)|英文"
+	global TrayFuncState := "无|语言首选项|设置|停止"
+	global OperationState := "无|切换至中文|切换至英文(中文)|切换至英文输入法|切换中英文(中文)|切换中英文输入法|重置输入法"
+	global ListViewKBLState := "无|中|英(中)|英"
+	global DefaultCapsLockState := "无|小写|大写"
 
-Label_CreateHotkey:	;创建热键
+Label_Init: ; 初始化操作
+	Gosub, Label_Init_ShowKBLGui ; 初始化切换显示GUI
+	Gosub, Label_Init_ResetINI ; 定时检测配置文件
+	
+Label_Left_Mouse_ShowKBL: ; 左键显示输入法
+	StrSplit(Left_Mouse_ShowKBL,"|",,2)
+	Left_Mouse_ShowKBL_temp := StrSplit(Left_Mouse_ShowKBL,"|",,2)
+	Left_Mouse_ShowKBL_State := Left_Mouse_ShowKBL_temp[1]
+	getINISwitchWindows(Left_Mouse_ShowKBL_temp[2],"Left_Mouse_ShowKBL_WinGroup","|")
+	Hotkey, IfWinActive, ahk_group Left_Mouse_ShowKBL_WinGroup
+	If (Left_Mouse_ShowKBL_State=1 && TT_OnOff_Style!=0){
+		Hotkey, ~LButton, Label_Click_showSwitch
+		Hotkey, ~WheelUp, Label_Hide_All
+		Hotkey, ~WheelDown, Label_Hide_All
+	}
+	getINISwitchWindows(Left_Mouse_ShowKBL_Up,"Left_Mouse_ShowKBL_Up_WinGroup","|")
+
+Label_CreateHotkey:	; 创建热键
 	Hotkey, IfWinNotActive, ahk_group DisableHotKeyAppList_ahk_group
 	if (Hotkey_Add_To_Cn != "")
 		Hotkey, %Hotkey_Add_To_Cn%, Add_To_Cn
@@ -483,13 +496,13 @@ Label_CreateHotkey:	;创建热键
 		TarFunList[Hotkey_Set_English] := 3
 		try Hotkey, %Hotkey_Set_English%, TarHotFun
 	}
-	if (Hotkey_toggle_CN_CNEN != ""){
-		TarFunList[Hotkey_toggle_CN_CNEN] := 4
-		try Hotkey, %Hotkey_toggle_CN_CNEN%, TarHotFun
+	if (Hotkey_Toggle_CN_CNEN != ""){
+		TarFunList[Hotkey_Toggle_CN_CNEN] := 4
+		try Hotkey, %Hotkey_Toggle_CN_CNEN%, TarHotFun
 	}
-	if (Hotkey_toggle_CN_EN != ""){
-		TarFunList[Hotkey_toggle_CN_EN] := 5
-		try Hotkey, %Hotkey_toggle_CN_EN%, TarHotFun
+	if (Hotkey_Toggle_CN_EN != ""){
+		TarFunList[Hotkey_Toggle_CN_EN] := 5
+		try Hotkey, %Hotkey_Toggle_CN_EN%, TarHotFun
 	}
 	if (Hotkey_Reset_KBL != ""){
 		TarFunList[Hotkey_Reset_KBL] := 6
@@ -503,7 +516,7 @@ Label_CreateHotkey:	;创建热键
 	if (Hotkey_Get_KeyBoard != "")
 		Hotkey, %Hotkey_Get_KeyBoard%, Get_KeyBoard
 
-Label_BoundHotkey:	;绑定特殊热键
+Label_BoundHotkey: ; 绑定特殊热键
 	If (Outer_InputKey_Compatible=1)
 		extraKey := " Up"
 	BoundHotkey("~LShift" extraKey,Hotkey_Left_Shift)
@@ -513,39 +526,16 @@ Label_BoundHotkey:	;绑定特殊热键
 	BoundHotkey("~LAlt" extraKey,Hotkey_Left_Alt)
 	BoundHotkey("~RAlt" extraKey,Hotkey_Right_Alt)
 
-	StrSplit(Left_Mouse_ShowKBL,"|",,2)
-
-	Left_Mouse_ShowKBL_temp := StrSplit(Left_Mouse_ShowKBL,"|",,2)
-	Left_Mouse_ShowKBL_State := Left_Mouse_ShowKBL_temp[1]
-	getINISwitchWindows(Left_Mouse_ShowKBL_temp[2],"Left_Mouse_ShowKBL_WinGroup","|")
-	Hotkey, IfWinActive, ahk_group Left_Mouse_ShowKBL_WinGroup
-	If (Left_Mouse_ShowKBL_State=1 && TT_OnOff=1){
-		Hotkey, ~LButton, Lable_Click_showSwitch
-		Hotkey, ~WheelUp, Hide_TT
-		Hotkey, ~WheelDown, Hide_TT
-	}
-
-	getINISwitchWindows(Left_Mouse_ShowKBL_Up,"Left_Mouse_ShowKBL_Up_WinGroup","|")
-
-Label_Main: ;主运行脚本
-	DllCall("ChangeWindowMessageFilter", "UInt", 0x004A, "UInt" , 1)	; 接受非管理员权限RA消息
-	If (Auto_Switch=1){ ; 监听窗口消息
-		DllCall("RegisterShellHookWindow", UInt, A_ScriptHwnd)
-		shell_msg_num := DllCall("RegisterWindowMessage", Str, "SHELLHOOK")
-		OnMessage(shell_msg_num, "shellMessage")		
-		shellMessage(1,1)
-	}
-	OnMessage(0x004A, "Receive_WM_COPYDATA")
-
-Label_SetTimer: ; 定时器功能
-	If (KBLObj.Length()>1){
+Label_SetTimer: ; 定时器等功能
+	If (KBLObj.Length()>1){ ; 定时KBL状态检测
 		If (Tray_Display=1)
-			createTray()
-		If ((Tray_Display=1 && Tray_Display_KBL=1) || Cur_Launch=1 || Gui_OnOff!=0 || TT_OnOff!=0){
-			Gosub, KBLState_Detect
-			SetTimer, KBLState_Detect, 100
+			try Gosub, Label_Create_Tray
+		If ((Tray_Display=1 && Tray_Display_KBL=1) || Cur_Launch=1 || TT_OnOff_Style!=0){
+			Gosub, Label_KBLState_Detect
+			SetTimer, Label_KBLState_Detect, 100
 		}
 	}
+	; 定时重置输入法
 	SetTimer_Reset_KBL_temp := StrSplit(SetTimer_Reset_KBL,"|",,2)
 	SetTimer_Reset_KBL_Time := SetTimer_Reset_KBL_temp[1]
 	getINISwitchWindows(SetTimer_Reset_KBL_temp[2],"SetTimer_Reset_KBL_WinGroup","|")
@@ -553,21 +543,31 @@ Label_SetTimer: ; 定时器功能
 	global Reset_CapsLock_State := SubStr(Reset_CapsLock, 1, 1)
 	getINISwitchWindows(SubStr(Reset_CapsLock, 3),"Inner_AHKGroup_NoCapsLock","|")
 
-Label_End: ; 收尾
-	OnExit("ExitFunc") ;退出执行
+Label_AutoSwitch: ; 监听窗口切换输入法
+	DllCall("ChangeWindowMessageFilter", "UInt", 0x004A, "UInt" , 1) ; 接受非管理员权限RA消息
+	If (Auto_Switch=1){ ; 监听窗口消息
+		DllCall("RegisterShellHookWindow", UInt, A_ScriptHwnd)
+		global shell_msg_num := DllCall("RegisterWindowMessage", Str, "SHELLHOOK")
+		OnMessage(shell_msg_num, "shellMessage")		
+		shellMessage(1,1)
+	}
+	OnMessage(0x004A, "Receive_WM_COPYDATA")
+
+Label_End: ; 收尾工作
+	OnExit("ExitFunc") ; 退出执行
 	VarSetCapacity(Ico_path, 0)
 	VarSetCapacity(Ico_num, 0)
-	ScriptIniting := 0
-	SetTimer,Label_ClearMEM,-1000 ;清理内存
+	ScriptIniting := 0 ; 脚本初始化结束
+	SetTimer,Label_ClearMEM,-1000 ; 清理内存
 
-Label_Return: ;结束标志
+Label_Return: ; 结束标志
 Return
 
-KBLState_Detect: ;输入法状态检测
+Label_KBLState_Detect: ; 输入法状态检测
 	showSwitch()
 Return
 
-Auto_Reload_MTime: ;定时重新加载脚本
+Label_AutoReload_MTime: ; 定时重新加载脚本
 	RegRead, mtime_ini_path_reg, HKEY_CURRENT_USER, Software\KBLAutoSwitch, %INI%
 	FileGetTime, mtime_ini_path, %INI%, M  ; 获取修改时间.
 	RegRead, SystemUsesLightTheme_new, HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize, SystemUsesLightTheme
@@ -577,7 +577,100 @@ Auto_Reload_MTime: ;定时重新加载脚本
 	SystemUsesLightTheme := SystemUsesLightTheme_new
 Return
 
-getINISwitchWindows(INIVar:="",groupName:="",Delimiters:="`n"){ ;从配置文件读取切换窗口
+Label_Init_ResetINI: ; 配置文件更改后自动重新加载配置文件
+	FileGetTime, mtime_ini_path, %INI%, M  ; 获取修改时间.
+	RegWrite, REG_SZ, HKEY_CURRENT_USER, SOFTWARE\KBLAutoSwitch, %INI%, %mtime_ini_path%
+	if (Auto_Reload_MTime>0)
+		SetTimer, Label_AutoReload_MTime, %Auto_Reload_MTime%
+Return
+
+Label_Init_ShowKBLGui: ; 创建输入法状态GUI
+	If (TT_OnOff_Style!=0){
+		TT_Transparency := StrReplace(TT_Transparency, "，", ",")
+		TT_Transparency_Input := StrSplit(TT_Transparency, ",")[1]
+		TT_Transparency_Fix := StrSplit(TT_Transparency, ",")[2]
+		TT_Transparency_Fix := TT_Transparency_Fix=""?TT_Transparency_Input:TT_Transparency_Fix
+		TT_Font_Size := StrReplace(TT_Font_Size, "，", ",")
+		TT_Font_Size_Input := StrSplit(TT_Font_Size, ",")[1]
+		TT_Font_Size_Fix := StrSplit(TT_Font_Size, ",")[2]
+		TT_Font_Size_Fix := TT_Font_Size_Fix=""?TT_Font_Size_Input:TT_Font_Size_Fix	
+		TT_Shift := StrReplace(TT_Shift, "，", ",")
+		TT_Shift_X := StrSplit(TT_Shift, ",")[1]
+		TT_Shift_Y := StrSplit(TT_Shift, ",")[2]
+		TT_Shift_X := TT_Shift_X=""?0:TT_Shift_X,TT_Shift_Y := TT_Shift_Y=""?0:TT_Shift_Y
+		TT_Pos_Coef := StrReplace(TT_Pos_Coef, "，", ",")
+		global TT_Pos_Coef_X := StrSplit(TT_Pos_Coef, ",")[1]
+		global TT_Pos_Coef_Y := StrSplit(TT_Pos_Coef, ",")[2]
+		TT_Pos_Coef_X := TT_Pos_Coef_X=""?0:TT_Pos_Coef_X,TT_Pos_Coef_Y := TT_Pos_Coef_Y=""?0:TT_Pos_Coef_Y
+		If (TT_OnOff_Style!=3){
+			Gui, SwitchTT:Destroy
+			Gui, SwitchTT:-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +HwndSwitchTT_id +E0x20
+			Gui, SwitchTT:Color, %GuiTTBackCnColor%
+			Gui, SwitchTT:Font, c%GuiTTCnColor% s%TT_Font_Size_Input%, %FontType%
+			Gui, SwitchTT:Add,Text, x18 y3 HwndTT_Edit_Hwnd Center, %Display_En%
+			ControlGetPos, , , Text_W, Text_H, , ahk_id %TT_Edit_Hwnd%
+			global TT_W := Text_W+18
+			global TT_H := Text_H+8
+			WinSet, Transparent,%TT_Transparency_Input%, ahk_id %SwitchTT_id%
+			WinSet, Region, 10-0 W%TT_W% H%TT_H% R5-5, ahk_id %SwitchTT_id%
+			global TT_Shift_X_Real:=TT_Shift_X-TT_W-12
+			global TT_Shift_Y_Real:=TT_Shift_Y-2-TT_H
+		}
+		If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+			Gui, SwitchTT1:Destroy
+			Gui, SwitchTT1:-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +HwndSwitchTT_id1 +E0x20
+			Gui, SwitchTT1:Color, %GuiTTBackCnColor%
+			Gui, SwitchTT1:Font, c%GuiTTCnColor% s%TT_Font_Size_Fix%, %FontType%
+			Gui, SwitchTT1:Add,Text, x18 y3 HwndTT_Edit_Hwnd1 Center, %Display_En%
+			ControlGetPos, , , Text_W, Text_H, , ahk_id %TT_Edit_Hwnd1%
+			global TT_W1 := Text_W+18
+			global TT_H1 := Text_H+8
+			WinSet, Transparent,%TT_Transparency_Fix%, ahk_id %SwitchTT_id1%
+			WinSet, Region, 10-0 W%TT_W1% H%TT_H1% R5-5, ahk_id %SwitchTT_id1%
+		}
+	}
+Return
+
+shellMessage(wParam, lParam) { ; 接受系统窗口回调消息切换输入法, 第一次是实时，第二次是保障
+	If ( wParam=1 || wParam=32772 || wParam=5 || wParam=4) {
+		Gosub, Label_Shell_KBLSwitch
+		SetTimer, Label_Shell_KBLSwitch, -100
+	}
+}
+
+Label_Shell_KBLSwitch: ; 根据激活窗口切换输入法
+	Critical On
+	If (SetTimer_Reset_KBL_Time>0 && WinActive("ahk_group SetTimer_Reset_KBL_WinGroup")) ; 无操作定时重置输入法
+		SetTimer, Label_SetTimer_ResetKBL, % SetTimer_Reset_KBL_Time*1000/60
+	Else If (SetTimer_Reset_KBL_Time>0)
+		SetTimer, Label_SetTimer_ResetKBL, Delete
+	If WinActive("ahk_group unswitch_ahk_group") ;不进行切换的屏蔽程序
+		Return
+	If WinActive("ahk_group DisableSwitchAppList_ahk_group"){ ;不进行切换的屏蔽程序
+		showSwitch()
+	}Else If WinActive("ahk_group unswitch_ahk_group_before"){ ;没必要切换的窗口前，保证切换显示逻辑的正确
+		setKBLlLayout(LastKBLState)
+	}Else If WinActive("ahk_group cn_ahk_group"){ ;切换中文输入法
+		setKBLlLayout(0,1)
+	}Else If WinActive("ahk_group cnen_ahk_group"){ ;切换英文(中文)输入法
+		setKBLlLayout(1,1)
+	}Else If WinActive("ahk_group en_ahk_group"){ ;切换英文输入法
+		setKBLlLayout(2,1)
+	}Else If WinActive("ahk_group cn_ahk_group_custom"){ ;窗口组切换中文输入法
+		setKBLlLayout(0,1)
+	}Else If WinActive("ahk_group cnen_ahk_group_custom"){ ;窗口组切换英文(中文)输入法
+		setKBLlLayout(1,1)
+	}Else If WinActive("ahk_group en_ahk_group_custom"){ ;窗口组切换英文输入法
+		setKBLlLayout(2,1)
+	}Else If WinActive("ahk_group unswitch_ahk_group_after"){ ;没必要切换的窗口后，保证切换显示逻辑的正确
+		setKBLlLayout(LastKBLState)
+	}Else {
+		setKBLlLayout(Default_Keyboard-1,1)
+	}
+	Critical Off
+Return
+
+getINISwitchWindows(INIVar:="",groupName:="",Delimiters:="`n") { ; 从配置文件读取切换窗口
 	Loop, parse, INIVar, %Delimiters%, `r
 	{
 		MyVar := StrSplit(Trim(A_LoopField), "=")
@@ -597,13 +690,13 @@ getINISwitchWindows(INIVar:="",groupName:="",Delimiters:="`n"){ ;从配置文件
 			GroupAdd, %groupName%, ahk_exe ApplicationFrameHost.exe, %uwp_app%
 			GroupAdd, %groupName%, %uwp_app%
 		}Else If (!InStr(MyVar_Val, A_Space) && SubStr(MyVar_Val, -3)=".exe")
-	    	GroupAdd, %groupName%, ahk_exe%A_Space%%MyVar_Val%
+	    	GroupAdd, %groupName%, ahk_exe %MyVar_Val%
 	    Else
 	    	GroupAdd, %groupName%, %MyVar_Val%
 	}
 }
 
-showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ;选择显示中英文
+showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ; 显示中英文状态（托盘图标、鼠标光标、Gui、TT）
 	If (KBLState=""){
 		gl_Active_IMEwin_id := getIMEwinid()
 		KBLState := (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code?(getIMECode(gl_Active_IMEwin_id)!=0?0:1):2)
@@ -625,8 +718,7 @@ showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ;选择显示中
 		LastCapsState:=CapsLockState
 		If (Display_KBL_Flag[1]!=1){
 			Display_KBL_Flag[1]:=1
-			showSwitchGui(LastKBLState,LastCapsState)
-			showSwitchTT(LastKBLState,LastCapsState)
+			TT_Display_KBL(LastKBLState,LastCapsState)
 		}
 		If (Display_KBL_Flag[2]!=1){
 			Display_KBL_Flag[2]:=1
@@ -649,279 +741,117 @@ showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ;选择显示中
 
 }
 
-getIMEwinid(){ ; 获取激活窗口IME线程id
-	If WinActive("ahk_class ConsoleWindowClass"){
-		WinGet, win_id, , ahk_exe conhost.exe
-	}Else If WinActive("ahk_group focus_control_ahk_group"){	;改动：添加部分应用获取焦点控件ID，解决部分应用显示问题
-		ControlGetFocus, CClassNN, A
-		If (CClassNN = "")
-			WinGet, win_id, , A
-		Else
-			ControlGet, win_id, Hwnd, , %CClassNN%
-	}Else
-		WinGet, win_id, , A
-	IMEwin_id := DllCall(ImmGetDefaultIMEWnd, Uint, win_id, Uint)
-	Return IMEwin_id
-}
-
-getIMEKBL(win_id:="") { ;激活窗口键盘布局检测
-	thread_id := DllCall("GetWindowThreadProcessId", "UInt", win_id, "UInt", 0)
-	input_locale_id := DllCall("GetKeyboardLayout", "UInt", thread_id)
-	Switch input_locale_id
-	{
-		Case 134481924:Return 2052
-		Case 67699721:Return 1033
-		Default:Return input_locale_id
-	}
-}
-
-getIMECode(win_id:="") { ;激活窗口键盘布局中英文状态检测
-	SendMessage 0x283, 0x005, 0, , ahk_id %win_id%,,,,1000
-	input_locale_id := ErrorLevel
-	If (input_locale_id=1){		
-		SendMessage 0x283, 0x001, 0, , ahk_id %win_id%,,,,1000
-		input_locale_id := 3&ErrorLevel
-	}
-	Return input_locale_id
-}
-
-setIME(setSts, win_id:="") { ;设置输入法状态
-;-----------------------------------------------------------
-; IMEの状態をセット
-;    対象： AHK v1.0.34以降
-;   SetSts  : 1:ON 0:OFF
-;   戻り値  1:ON 0:OFF
-;-----------------------------------------------------------
-	SendMessage 0x283, 0x001, 0, , ahk_id %win_id%,,,,1000
-	CONVERSIONMODE := 2046&ErrorLevel, CONVERSIONMODE += setSts
-    SendMessage 0x283, 0x002, CONVERSIONMODE, , ahk_id %win_id%,,,,1000
-    SendMessage 0x283, 0x006, setSts, , ahk_id %win_id%,,,,1000
-    Return ErrorLevel
-}
-
-setKBLlLayout(KBL:=0){ ; 切换输入法
-	Thread, NoTimers, True
-	gl_Active_IMEwin_id := getIMEwinid()
-	CapsLockState := LastCapsState
-	If !WinActive("ahk_group Inner_AHKGroup_NoCapsLock") {
-		Switch Reset_CapsLock_State
-		{
-			Case 1: SetCapsLockState, Off
-			Case 2: SetCapsLockState, On
-		}
-		If (Reset_CapsLock_State>0)
-			CapsLockState := Reset_CapsLock_State-1
-	}
-	If (KBL=0){ ; 切换中文输入法
-		If (getIMEKBL(gl_Active_IMEwin_id)=CN_Code){
-			If (getIMECode(gl_Active_IMEwin_id)!=1)
-				setIME(1,gl_Active_IMEwin_id)
-		}Else{
-			SendMessage, 0x50, , %CN_Code%, , ahk_id %gl_Active_IMEwin_id%,,,,1000
-			Sleep,50
-			setIME(1,gl_Active_IMEwin_id)
-		}
-	}Else If (KBL=1){ ; 切换英文(中文)输入法
-		If (getIMEKBL(gl_Active_IMEwin_id)=CN_Code){
-			If (getIMECode(gl_Active_IMEwin_id)!=0)
-				setIME(0,gl_Active_IMEwin_id)
-		}Else{
-			SendMessage, 0x50, , %CN_Code%, , ahk_id %gl_Active_IMEwin_id%,,,,1000
-			Sleep,50
-			setIME(0,gl_Active_IMEwin_id)
-		}
-	}Else If (KBL=2){ ; 切换英文输入法
-		If (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code)
-			PostMessage, 0x50, , %EN_Code%, , ahk_id %gl_Active_IMEwin_id%
-	}
-	Thread, NoTimers, False
-	try showSwitch(KBL,CapsLockState,1)
-}
-
-shellMessage(wParam, lParam) { ;接受系统窗口回调消息, 第一次是实时，第二次是保障
-	If ( wParam=1 || wParam=32772 || wParam=5 || wParam=4) {
-		Gosub, Shell_Switch
-		SetTimer, Shell_Switch, -100
-	}
-}
-
-Shell_Switch: ;根据激活窗口切换输入法
-	Critical On
-	If (SetTimer_Reset_KBL_Time>0 && WinActive("ahk_group SetTimer_Reset_KBL_WinGroup")) ; 无操作定时重置输入法
-		SetTimer, Label_SetTimer_Reset_KBL, % SetTimer_Reset_KBL_Time*1000/60
-	Else If (SetTimer_Reset_KBL_Time>0)
-		SetTimer, Label_SetTimer_Reset_KBL, Delete
-	If WinActive("ahk_group unswitch_ahk_group") ;不进行切换的屏蔽程序
+TT_Display_KBL(KBLState,CapsLockState,mouclick:=0) { ; 显示输入法状态-TT方式
+	If (TT_OnOff_Style=0 || WinExist("ahk_class #32768") || WinActive("ahk_group DisableTTShowAppList_ahk_group")){
+		Gosub,Label_Hide_All
 		Return
-	If WinActive("ahk_group DisableSwitchAppList_ahk_group"){ ;不进行切换的屏蔽程序
-		showSwitch()
-	}Else If WinActive("ahk_group unswitch_ahk_group_before"){ ;没必要切换的窗口前，保证切换显示逻辑的正确
-		setKBLlLayout(LastKBLState)
-	}Else If WinActive("ahk_group cn_ahk_group"){ ;切换中文输入法
-		setKBLlLayout(0)
-	}Else If WinActive("ahk_group en_ahk_group"){ ;切换英文(中文)输入法
-		setKBLlLayout(1)
-	}Else If WinActive("ahk_group enen_ahk_group"){ ;切换英文输入法
-		setKBLlLayout(2)
-	}Else If WinActive("ahk_group unswitch_ahk_group_after"){ ;没必要切换的窗口后，保证切换显示逻辑的正确
-		setKBLlLayout(LastKBLState)
-	}Else {
-		setKBLlLayout(Default_Keyboard-1)
 	}
-	Critical Off
-Return
-
-Monitor_Change(ByRef wParam,ByRef lParam){ ;分辨率改变消息
-    SetTimer, Menu_Reload, -1000
-}
-
-showSwitchGui(KBLState,CapsLockState) { ;显示切换或当前的输入法状态，以GUI方式显示
-	If (Gui_OnOff!=1)
-		Return
-	KBLMsg := KBLState=0?Display_Cn:KBLState=1?Display_CnEn:Display_En
-	CapsLockMsg := CapsLockState!=0? " | A" : " | a"
-	If (KBLState=0)
-		Gui, SwitchGui:Font, c%GuiTTCnColor%, Segoe UI
-	Else
-		Gui, SwitchGui:Font, c%GuiTTEnColor%, Segoe UI
-	GuiControl, Text, %Gui_Edit_Hwnd%, %KBLMsg%
-	GuiControl, Text, %Gui_Edit_Hwnd1%, %CapsLockMsg%
-	GuiControl, Font, %Gui_Edit_Hwnd%
-	GuiControl, Font, %Gui_Edit_Hwnd1%
-	Gui SwitchGui:+AlwaysOnTop
-	try Gui, SwitchGui:Show, x%Gui_X_Pos% y%Gui_Y_Pos% NoActivate
-	SetTimer, Hide_Gui, %Gui_Display_Time%
-	Return
-
-	Hide_Gui:  ;隐藏GUI
-		SetTimer, Hide_Gui, Off
-		Gui, SwitchGui:Hide
-	Return
-}
-
-showSwitchTT(KBLState,CapsLockState,mouclick:=0) { ;显示切换或当前的输入法状态，以TT方式显示
 	If (TarHotFunFlag!=0 || mouclick=1){
 		Sleep,10
 		If (TarHotFunFlag=2 && WinActive("ahk_group GetCaretSleep_ahk_group"))
 			WinWait, A, , 0.01
 	}
-	If (TT_OnOff!=1)
-		Return
-	KBLMsg := KBLState=0?Display_Cn:KBLState=1?Display_CnEn:Display_En
-	CapsLockMsg := CapsLockState!=0? " | A" : " | a"
-	If (KBLState=0)
-		Gui, SwitchTT:Font, c%GuiTTCnColor%, Segoe UI
-	Else
-		Gui, SwitchTT:Font, c%GuiTTEnColor%, Segoe UI
-	GuiControl, Text, %TT_Edit_Hwnd%, %KBLMsg%
-	GuiControl, Text, %TT_Edit_Hwnd1%, %CapsLockMsg%
-	GuiControl, Font, %TT_Edit_Hwnd%
-	GuiControl, Font, %TT_Edit_Hwnd1%
-	Gui SwitchTT:+AlwaysOnTop
-	If (ShowSwitch_Pos=0){
-		MouseGetPos, CaretX, CaretY	
-	}Else If (ShowSwitch_Pos=1){
-		GetCaret(CaretX, CaretY)
-		If (mouclick=1 && A_Cursor!="IBeam")
-			Goto, Hide_TT
+	KBLMsg := CapsLockState!=0?"A":KBLState=0?Display_Cn:KBLState=1?Display_CnEn:Display_En
+	If (KBLState=0){
+		If (TT_OnOff_Style!=3){
+			Gui, SwitchTT:Color, %GuiTTBackCnColor%
+			Gui, SwitchTT:Font, c%GuiTTCnColor%, %FontType%
+		}
+		If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+			Gui, SwitchTT1:Color, %GuiTTBackCnColor%
+			Gui, SwitchTT1:Font, c%GuiTTCnColor%, %FontType%
+		}
+	}Else{
+		If (TT_OnOff_Style!=3){
+			Gui, SwitchTT:Color, %GuiTTBackEnColor%
+			Gui, SwitchTT:Font, c%GuiTTEnColor%, %FontType%
+		}
+		If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+			Gui, SwitchTT1:Color, %GuiTTBackEnColor%
+			Gui, SwitchTT1:Font, c%GuiTTEnColor%, %FontType%
+		}
 	}
-	CaretX := CaretX+TT_X_Shift_Real, CaretY := CaretY+TT_Y_Shift_Real
-	try Gui, SwitchTT:Show, x%CaretX% y%CaretY% NoActivate
-	SetTimer, Hide_TT, %TT_Display_Time%
+	If (TT_OnOff_Style!=3){
+		GuiControl, Text, %TT_Edit_Hwnd%, %KBLMsg%
+		GuiControl, Font, %TT_Edit_Hwnd%
+		Gui SwitchTT:+AlwaysOnTop
+	}
+	If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+		GuiControl, Text, %TT_Edit_Hwnd1%, %KBLMsg%
+		GuiControl, Font, %TT_Edit_Hwnd1%
+		Gui SwitchTT1:+AlwaysOnTop
+	}
+	TT_Shift_flag := 0
+	If (TT_OnOff_Style=1){
+		MouseGetPos, CaretX, CaretY	
+	}Else{
+		If (TT_OnOff_Style=3){
+			Caret := getDisplayPos(TT_Pos_Coef_X,TT_Pos_Coef_Y,TT_W1,TT_H1)
+			CaretX := Caret["x"],CaretY := Caret["y"]
+			TT_Shift_flag := 1
+		}Else{
+			GetCaret(CaretX, CaretY)
+			If (TT_OnOff_Style=2 && A_Cursor="IBeam" && CaretX=0 && CaretY=0)
+				MouseGetPos, CaretX, CaretY
+			Else If (TT_OnOff_Style=4 && CaretX=0 && CaretY=0){
+				Caret := getDisplayPos(TT_Pos_Coef_X,TT_Pos_Coef_Y,TT_W1,TT_H1)
+				CaretX := Caret["x"],CaretY := Caret["y"]
+				TT_Shift_flag := 1
+			}
+			If (mouclick=1 && A_Cursor!="IBeam")
+				Goto, Hide_TT
+		}
+	}
+	If (TT_Shift_flag=0){
+		Gosub, Hide_TT1
+		CaretX := CaretX+TT_Shift_X_Real, CaretY := CaretY+TT_Shift_Y_Real
+		try Gui, SwitchTT:Show, x%CaretX% y%CaretY% NoActivate
+		SetTimer, Hide_TT, %TT_Display_Time%
+	}Else{
+		Gosub, Hide_TT
+		try Gui, SwitchTT1:Show, x%CaretX% y%CaretY% NoActivate
+		SetTimer, Hide_TT1, %TT_Display_Time%
+	}
 	Return
 
 	Hide_TT:  ;隐藏GUI
 		SetTimer, Hide_TT, Off
 		Gui, SwitchTT:Hide
 	Return
-}
 
-showToolTip(Msg="", ShowTime=1000) { ;ToolTip显示
-	ToolTip, %Msg%
-	SetTimer, Timer_Remove_ToolTip, %ShowTime%
-	Return
-	
-	Timer_Remove_ToolTip:  ;移除ToolTip
-		SetTimer, Timer_Remove_ToolTip, Off
-		ToolTip
+	Hide_TT1:  ;隐藏GUI
+		SetTimer, Hide_TT1, Off
+		Gui, SwitchTT1:Hide
 	Return
 }
 
-getDisplayPos(X,Y) { ;根据屏幕的分辨率获取输入法切换显示位置
-	pos_array := Object()
-	SysGet, Mon, Monitor
-	ratio := MonRight/MonBottom
-	pos_array[0] := MonRight*X*0.01
-	pos_array[1] := MonBottom*Y*0.01
-	Return pos_array
-}
-
-initResetINI() { ;定时重新加载配置文件
-	FileGetTime, mtime_ini_path, %INI%, M  ; 获取修改时间.
-	RegWrite, REG_SZ, HKEY_CURRENT_USER, SOFTWARE\KBLAutoSwitch, %INI%, %mtime_ini_path%
-	if (Auto_Reload_MTime>0)
-		SetTimer, Auto_Reload_MTime, %Auto_Reload_MTime%
-}
-
-initGui() { ;创建切换显示GUI
-	If (Gui_OnOff=1){
-		Gui, SwitchGui:Destroy
-		Gui, SwitchGui:-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +HwndSwitchGui_id +E0x20
-		Gui, SwitchGui:Color, %GuiTTBackColor%
-		Gui, SwitchGui:Font, c%GuiTTCnColor% s%Gui_Font_Size%, Segoe UI
-		Gui, SwitchGui:Add,Text, x20 y3 HwndGui_Edit_Hwnd, %Display_En%
-		ControlGetPos, , , Text_W, Text_H, , ahk_id %Gui_Edit_Hwnd%
-		Gui_W := Text_W+20
-		Gui_H := Text_H+8
-		Gui, SwitchGui:Add,Text, x%Gui_W% y3 HwndGui_Edit_Hwnd1, %A_Space%| A
-		ControlGetPos, , , Text_W, Text_H, , ahk_id %Gui_Edit_Hwnd1%
-		Gui_W := Gui_W+Text_W
-		WinSet, Transparent,%Gui_Font_Transparency%, ahk_id %SwitchGui_id%
-		WinSet, Region, 10-0 W%Gui_W% H%Gui_H% R5-5, ahk_id %SwitchGui_id%
-	}
-	If (TT_OnOff=1){
-		Gui, SwitchTT:Destroy
-		Gui, SwitchTT:-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +HwndSwitchTT_id +E0x20
-		Gui, SwitchTT:Color, %GuiTTBackColor%
-		Gui, SwitchTT:Font, c%GuiTTCnColor% s%TT_Font_Size%, Segoe UI
-		Gui, SwitchTT:Add,Text, x18 y3 HwndTT_Edit_Hwnd, %Display_En%
-		ControlGetPos, , , Text_W, Text_H, , ahk_id %TT_Edit_Hwnd%
-		TT_W := Text_W+18
-		TT_H := Text_H+8
-		Gui, SwitchTT:Add,Text, x%TT_W% y3 HwndTT_Edit_Hwnd1, %A_Space%| A
-		ControlGetPos, , , Text_W, Text_H, , ahk_id %TT_Edit_Hwnd1%
-		TT_W := TT_W+Text_W
-		WinSet, Transparent,%TT_Font_Transparency%, ahk_id %SwitchTT_id%
-		WinSet, Region, 10-0 W%TT_W% H%TT_H% R5-5, ahk_id %SwitchTT_id%
-		TT_X_Shift_Real:=TT_X_Shift-TT_W-12,TT_Y_Shift_Real:=TT_Y_Shift-2-TT_H
-	}
-}
-
-Tray_Display_KBL(KBL_Flag:=0,CapsLock_Flag:=0) { ;更改显示提示图标
+Tray_Display_KBL(KBL_Flag:=0,CapsLock_Flag:=0) { ; 显示输入法状态-托盘图标方式
 	If (Tray_Display=0){
 		Menu, Tray, NoIcon
 	}Else If (Tray_Display_KBL=0){
 		Menu, Tray, Icon, %A_AhkPath%
-	}Else{			
-		If (KBL_Flag=0)
-			If (CapsLock_Flag=1)
-				Menu, Tray, Icon, HICON:*%ACNIcon%
-			Else
-				Menu, Tray, Icon, HICON:*%CNIcon%
-		Else If (KBL_Flag=1)
-			If (CapsLock_Flag=1)
-				Menu, Tray, Icon, HICON:*%AENIcon%
-			Else
-				Menu, Tray, Icon, HICON:*%CNENIcon%
-		Else If (KBL_Flag=2)
-			If (CapsLock_Flag=1)
-				Menu, Tray, Icon, HICON:*%AENIcon%
-			Else
-				Menu, Tray, Icon, HICON:*%ENIcon%
+	}Else{
+		try{
+			If (KBL_Flag=0)
+				If (CapsLock_Flag=1)
+					Menu, Tray, Icon, HICON:*%ACNIcon%
+				Else
+					Menu, Tray, Icon, HICON:*%CNIcon%
+			Else If (KBL_Flag=1)
+				If (CapsLock_Flag=1)
+					Menu, Tray, Icon, HICON:*%AENIcon%
+				Else
+					Menu, Tray, Icon, HICON:*%CNENIcon%
+			Else If (KBL_Flag=2)
+				If (CapsLock_Flag=1)
+					Menu, Tray, Icon, HICON:*%AENIcon%
+				Else
+					Menu, Tray, Icon, HICON:*%ENIcon%
+		}		
 	}
 }
 
-Cur_Display_KBL(KBL_Flag:=0,CapsLock_Flag:=0,MonitorNum:=0) { ;更改显示提示光标
+Cur_Display_KBL(KBL_Flag:=0,CapsLock_Flag:=0,MonitorNum:=0) { ; 显示输入法状态-鼠标光标方式
 	If (Cur_Launch!=1)
 		Return
 	If (KBL_Flag=0){
@@ -971,7 +901,121 @@ Cur_Display_KBL(KBL_Flag:=0,CapsLock_Flag:=0,MonitorNum:=0) { ;更改显示提�
 	}
 }
 
-getMonitorNum(X,Y){ ;获取指定位置所在显示器编号
+getIMEwinid() { ; 获取激活窗口IME线程id
+	If WinActive("ahk_class ConsoleWindowClass"){
+		WinGet, win_id, , ahk_exe conhost.exe
+	}Else If WinActive("ahk_group focus_control_ahk_group"){
+		ControlGetFocus, CClassNN, A
+		If (CClassNN = "")
+			WinGet, win_id, , A
+		Else
+			ControlGet, win_id, Hwnd, , %CClassNN%
+	}Else
+		WinGet, win_id, , A
+	IMEwin_id := DllCall(ImmGetDefaultIMEWnd, Uint, win_id, Uint)
+	Return IMEwin_id
+}
+
+getIMEKBL(win_id:="") { ; 获取激活窗口键盘布局
+	thread_id := DllCall("GetWindowThreadProcessId", "UInt", win_id, "UInt", 0)
+	IME_State := DllCall("GetKeyboardLayout", "UInt", thread_id)
+	Switch IME_State
+	{
+		Case 134481924:Return 2052
+		Case 67699721:Return 1033
+		Default:Return IME_State
+	}
+}
+
+getIMECode(win_id:="") { ; 获取激活窗口键盘布局中英文状态
+	SendMessage 0x283, 0x005, 0, , ahk_id %win_id%,,,,1000
+	IME_Input_State := ErrorLevel
+	If (IME_Input_State=1){		
+		SendMessage 0x283, 0x001, 0, , ahk_id %win_id%,,,,1000
+		IME_Input_State := 1&ErrorLevel
+	}
+	Return IME_Input_State
+}
+
+setIME(setSts, win_id:="") { ; 设置输入法状态-获取状态-末位设置
+	SendMessage 0x283, 0x001, 0, , ahk_id %win_id%,,,,1000
+	CONVERSIONMODE := 2046&ErrorLevel, CONVERSIONMODE += setSts
+    SendMessage 0x283, 0x002, CONVERSIONMODE, , ahk_id %win_id%,,,,1000
+    SendMessage 0x283, 0x006, setSts, , ahk_id %win_id%,,,,1000
+    Return ErrorLevel
+}
+
+setKBLlLayout(KBL:=0,Source:=0) { ; 设置输入法键盘布局
+	Thread, NoTimers, True
+	AutoSwitchFrequency += Source
+	gl_Active_IMEwin_id := getIMEwinid()
+	CapsLockState := LastCapsState
+	If !WinActive("ahk_group Inner_AHKGroup_NoCapsLock") { ; 设置大小写
+		Switch Reset_CapsLock_State
+		{
+			Case 1: SetCapsLockState, Off
+			Case 2: SetCapsLockState, On
+		}
+		If (Reset_CapsLock_State>0)
+			CapsLockState := Reset_CapsLock_State-1
+	}
+	If (KBL=0){ ; 切换中文输入法
+		If (getIMEKBL(gl_Active_IMEwin_id)=CN_Code){
+			If (getIMECode(gl_Active_IMEwin_id)!=1){
+				setIME(1,gl_Active_IMEwin_id)
+			}
+		}Else{
+			SendMessage, 0x50, , %CN_Code%, , ahk_id %gl_Active_IMEwin_id%,,,,1000
+			Sleep,50
+			setIME(1,gl_Active_IMEwin_id)
+		}
+	}Else If (KBL=1){ ; 切换英文(中文)输入法
+		If (getIMEKBL(gl_Active_IMEwin_id)=CN_Code){
+			If (getIMECode(gl_Active_IMEwin_id)!=0)
+				setIME(0,gl_Active_IMEwin_id)
+		}Else{
+			SendMessage, 0x50, , %CN_Code%, , ahk_id %gl_Active_IMEwin_id%,,,,1000
+			Sleep,50
+			setIME(0,gl_Active_IMEwin_id)
+		}
+	}Else If (KBL=2){ ; 切换英文输入法
+		If (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code)
+			PostMessage, 0x50, , %EN_Code%, , ahk_id %gl_Active_IMEwin_id%
+	}
+	Thread, NoTimers, False
+	try showSwitch(KBL,CapsLockState,1)
+	SetTimer, Label_Change_TrayTip, -1000
+}
+
+showToolTip(Msg="", ShowTime=1000) { ; ToolTip提示信息
+	ToolTip, %Msg%
+	SetTimer, Timer_Remove_ToolTip, %ShowTime%
+	Return
+	
+	Timer_Remove_ToolTip:  ; 移除ToolTip
+		SetTimer, Timer_Remove_ToolTip, Off
+		ToolTip
+	Return
+}
+
+monitorChange(ByRef wParam,ByRef lParam) { ; 显示器分辨率更改-重启脚本
+    SetTimer, Menu_Reload, -1000
+}
+
+getDisplayPos(X=0, Y=0, W=0, H=0) { ; 根据屏幕的分辨率获取输入法状态显示位置
+	WinGetPos, WinX, WinY, , , A
+	MonitorNum := getMonitorNum(WinX,WinY)
+	SysGet, Mon, MonitorWorkArea, MonitorNum
+	MonWidth := MonRight-MonLeft
+	MonHeight := MonBottom-MonTop
+	X := MonLeft+MonWidth*X*0.01
+	Y := MonTop+MonHeight*Y*0.01
+	X := X+W>MonWidth-10?MonWidth-W-10:X
+	Y := Y+H>MonHeight-10?MonHeight-H-10:Y
+	return {x:X, y:Y}
+}
+
+getMonitorNum(X,Y) { ; 获取指定位置所在显示器编号
     Loop,% MonitorAreaObjects.Length()
     {
         If (X>MonitorAreaObjects[A_Index][1] && X<MonitorAreaObjects[A_Index][3] && Y>MonitorAreaObjects[A_Index][2] && Y<MonitorAreaObjects[A_Index][4])
@@ -980,39 +1024,31 @@ getMonitorNum(X,Y){ ;获取指定位置所在显示器编号
     Return 1
 }
 
-initINI() { ;初始化INI
+Label_Init_INI: ; 初始化配置文件INI
 	FileAppend,[基本设置]`n, %INI%
 	FileAppend,开机自启=0`n, %INI%
 	FileAppend,管理员启动=1`n, %INI%
 	FileAppend,自动切换=1`n, %INI%
 	FileAppend,默认输入法=1`n, %INI%
-	FileAppend,切换模式=1`n, %INI%
 
-	FileAppend,Gui切换提示=1`n, %INI%
-	FileAppend,Gui切换提示时间=1500`n, %INI%
-	FileAppend,Gui切换提示文字大小=32`n, %INI%
-	FileAppend,Gui切换提示透明度=235`n, %INI%
-	FileAppend,Gui切换提示水平位置=87`n, %INI%
-	FileAppend,Gui切换提示垂直位置=87`n, %INI%
-
-	FileAppend,ToolTip切换提示=1`n, %INI%
-	FileAppend,ToolTip切换提示时间=1500`n, %INI%
-	FileAppend,ToolTip切换提示文字大小=11`n, %INI%
-	FileAppend,ToolTip切换提示透明度=235`n, %INI%
-	FileAppend,ToolTip切换提示水平偏移=0`n, %INI%
-	FileAppend,ToolTip切换提示垂直偏移=0`n, %INI%
-	FileAppend,切换提示位置=1`n, %INI%
+	FileAppend,切换提示=4`n, %INI%
+	FileAppend,切换提示时间=1500`n, %INI%
+	FileAppend,切换提示文字大小=15,30`n, %INI%
+	FileAppend,切换提示透明度=235,180`n, %INI%
+	FileAppend,切换提示偏移=0,0`n, %INI%
+	FileAppend,切换提示固定位置=50,30`n, %INI%
 
 	FileAppend,托盘图标显示=1`n, %INI%
-	FileAppend,图标显示输入法=1`n, %INI%
-	FileAppend,双击托盘图标=2`n, %INI%
+	FileAppend,托盘图标显示输入法=1`n, %INI%
+	FileAppend,托盘图标双击=2`n, %INI%
 
 	FileAppend,鼠标指针显示输入法=1`n, %INI%
-	FileAppend,鼠标指针格式=0`n, %INI%
 	FileAppend,鼠标指针对应分辨率=0`n, %INI%
 
-	FileAppend,热键屏蔽程序列表=deadcells.exe`n, %INI%
-	FileAppend,切换屏蔽程序列表=`n, %INI%
+	FileAppend,[热键屏蔽窗口列表]`n, %INI%
+	FileAppend,[切换屏蔽窗口列表]`n, %INI%
+	FileAppend,[切换提示屏蔽窗口列表]`n, %INI%
+	FileAppend,窗口切换=ahk_class MultitaskingViewFrame`n, %INI%
 
 	FileAppend,[热键设置]`n, %INI%
 	FileAppend,添加至中文窗口=`n, %INI%
@@ -1045,7 +1081,8 @@ initINI() { ;初始化INI
 	FileAppend,定时重置输入法=60|编辑器`n, %INI%
 	FileAppend,切换重置大小写=1`n, %INI%
 	FileAppend,上屏字符内容=2`n, %INI%
-	FileAppend,提示颜色=333434|02ecfb|ff0000`n, %INI%
+	FileAppend,提示颜色=333434|dfe3e3|02ecfb|ff0000`n, %INI%
+	FileAppend,托盘提示内容=KBLAutoSwitch（`%权限`%）``n`%启动时间`%``n版本：`%版本`%``n自动切换统计：`%自动切换次数`%`n, %INI%
 
 	FileAppend,[自定义窗口组]`n, %INI%
 	FileAppend,1=全局窗口=0=AllGlobalWin=全局窗口组`n, %INI%
@@ -1056,15 +1093,14 @@ initINI() { ;初始化INI
 
 	FileAppend,[中文窗口]`n, %INI%
 	FileAppend,win搜索栏=ahk_exe SearchApp.exe`n, %INI%
-	FileAppend,OneNote-UWP=uwp OneNote for Windows 10`n, %INI%
-	FileAppend,RA搜索框=RunAny_SearchBar ahk_exe RunAny.exe`n, %INI%
+	FileAppend,OneNote for Windows 10=uwp  OneNote for Windows 10`n, %INI%
 	
 	FileAppend,[英文窗口]`n, %INI%
-	FileAppend,win桌面=ahk_class WorkerW`n, %INI%
-	FileAppend,win桌面=ahk_class Progman`n, %INI%
-	FileAppend,资源管理器=ahk_class CabinetWClass`n, %INI%
+	FileAppend,win桌面=ahk_class WorkerW ahk_exe explorer.exe`n, %INI%
+	FileAppend,win桌面=ahk_class Progman ahk_exe explorer.exe`n, %INI%
+	FileAppend,文件资源管理器=ahk_class CabinetWClass ahk_exe explorer.exe`n, %INI%
 	FileAppend,cmd=ahk_exe cmd.exe`n, %INI%
-	FileAppend,任务管理器=ahk_exe Taskmgr.exe`n, %INI%
+	FileAppend,任务管理器=ahk_exe taskmgr.exe`n, %INI%
 	
 	FileAppend,[英文输入法窗口]`n, %INI%
 	FileAppend,死亡细胞=ahk_exe deadcells.exe`n, %INI%
@@ -1073,18 +1109,15 @@ initINI() { ;初始化INI
 	FileAppend,[焦点控件切换窗口]`n, %INI%
 	FileAppend,Xshell=ahk_exe Xshell.exe`n, %INI%
 	FileAppend,Steam=ahk_exe Steam.exe`n, %INI%
-}
+Return
 
-createTray() { ;右键托盘菜单
-	;初始化托盘提示
-	TrayTipContent := "v" APPVersion
-	TrayTipContent .= A_IsAdmin=1?"（管理员）":"（非管理员）"
-	TrayTipContent .= "`n自动切换中英文输入法"
-	TrayTipContent .= "`n" AppStartTime APPType
-	Menu, Tray, Tip, %TrayTipContent%
+Label_Create_Tray: ; 创建右键托盘菜单
+	Gosub, Label_Change_TrayTip
 	Menu, Tray, NoStandard
-	Menu, Tray, Add, 关闭菜单, menu_close
+	Menu, Tray, Add, 关闭菜单, Menu_Close
 	Menu, Tray, Icon, 关闭菜单, % Ico_path["关闭菜单"], % Ico_num["关闭菜单"]
+	Menu, Tray, Add, 帮助文档, gMenu_Help
+	Menu, Tray, Icon, 帮助文档, % Ico_path["帮助文档"], % Ico_num["帮助文档"]
 	Menu, Tray, Add, 语言首选项, Menu_Language
 	Menu, Tray, Icon, 语言首选项, % Ico_path["语言首选项"], % Ico_num["语言首选项"]
 	Menu, Tray, Add 
@@ -1101,18 +1134,25 @@ createTray() { ;右键托盘菜单
 	Menu, Tray, Icon, 重启, % Ico_path["重启"], % Ico_num["重启"]
 	Menu, Tray, Add, 退出, Menu_Exit
 	Menu, Tray, Icon, 退出, % Ico_path["退出"], % Ico_num["退出"]
-	If (Double_Click_Open_KBL>0){
+	If (Tray_Double_Click>0){
 		Menu, Tray, Click, 2
-		Switch Double_Click_Open_KBL 
+		Switch Tray_Double_Click 
 		{
 			Case 1: Menu, Tray, Default ,语言首选项
 			Case 2: Menu, Tray, Default ,设置
 			Case 3: Menu, Tray, Default ,停止
 		}	
 	}
-}
+Return
 
-FilePathRun(FilePath){ ;使用内部关联打开文件
+Label_Change_TrayTip: ; 改变托盘图标提示
+	自动切换次数 := Format("{:d}", AutoSwitchFrequency/2)
+	Transform, TrayTipContent_new, Deref, % TrayTipContent
+	TrayTipContent_new := TrayTipContent_new=""?"KBLAutoSwitch":TrayTipContent_new
+	Menu, Tray, Tip, %TrayTipContent_new%
+Return
+
+FilePathRun(FilePath) { ; 使用内部关联打开文件
 	FileGetAttrib, Attributes, %FilePath%
 	If InStr(Attributes, "D")
 		FileExt := "folder"
@@ -1139,19 +1179,22 @@ FilePathRun(FilePath){ ;使用内部关联打开文件
 	}
 }
 
-menu_close: ;关闭菜单
-	gosub,Menu_Reload
+Menu_Close: ; 关闭菜单
+	Gosub, Menu_Reload
 Return
 
-Menu_Language: ;打开语言首选项
+Menu_Language: ; 打开语言首选项
 	If (OSVersion<=7)
 		Run,rundll32.exe shell32.dll`,Control_RunDLL input.dll
 	Else
 		Run,ms-settings:regionlanguage
 Return
 
-Menu_Settings_Gui: ;设置页面GUI
+Menu_Settings_Gui: ; 设置页面Gui
 	Critical On
+	Gosub, Label_ReadExistEXEIcos
+	Gosub, Label_ReadExistIcoStyles
+	Gosub, Label_ReadExistCurStyles
 	Menu, Tray, Icon, %A_AhkPath%
 	global EditSliderobj := Object()
 	Edit_Hwnd:="",Slider_Hwnd:=""
@@ -1165,218 +1208,223 @@ Menu_Settings_Gui: ;设置页面GUI
 	Gui, 55:Default
 	Gui, 55:Margin, 30, 20
 	Gui, 55:Font, W400, Microsoft YaHei
-	Gui, 55:Add, Tab3, x10 y10 w%tab_width_55% h580 vConfigTab, 基础设置1|基础设置2|热键配置|中英窗口|高级窗口|高级配置
+	Gui, 55:Add, Tab3, x10 y10 w%tab_width_55% h593 vConfigTab +0x8000, 基础设置1|基础设置2|热键配置|中英窗口|高级窗口|高级配置
 	
 	Gui, 55:Tab, 基础设置1
-	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h70, 【启动】设置
+	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h69, 【启动】设置
 	Gui, 55:Add, Text, xm+%left_margin% yp+30, 开机自启
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vAuto_Launch, %OnOffState%
 	GuiControl, Choose, Auto_Launch, % Auto_Launch+1
-	Gui, 55:Add, Text, x+82 yp+1 cred, 启动权限
+	Gui, 55:Add, Text, x+82 yp+2 cred, 启动权限
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vLaunch_Admin, 普通|管理员
 	GuiControl, Choose, Launch_Admin, % Launch_Admin+1
 
-	Gui, 55:Add, GroupBox, xm-10 y+26 w%group_width_55% h110, 【输入法切换】设置
+	Gui, 55:Add, GroupBox, xm-10 y+26 w%group_width_55% h69, 【输入法切换】设置
 	Gui, 55:Add, Text, xm+%left_margin% yp+30 cred, 自动切换
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vAuto_Switch, %OnOffState%
 	GuiControl, Choose, Auto_Switch, % Auto_Switch+1
-	Gui, 55:Add, Text, x+70 yp+1 cred, 默认输入法
+	Gui, 55:Add, Text, x+70 yp+2 cred, 默认输入法
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vDefault_Keyboard, %KBLSwitchState%
 	GuiControl, Choose, Default_Keyboard, % Default_Keyboard+1
-	Gui, 55:Add, Text, xm+%left_margin% yp+43, 切换模式
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vSwitch_Model, 严格切换|智能切换
-	GuiControl, Choose, Switch_Model, % Switch_Model+1
 
-	Gui, 55:Add, GroupBox, xm-10 y+25 w%group_width_55% h150, 【切换提示-固定GUI】设置
+	Gui, 55:Add, GroupBox, xm-10 y+26 w%group_width_55% h149, 【切换提示】设置
 	Gui, 55:Add, Text, cred xm+%left_margin% yp+30, 切换提示
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vGui_OnOff, 关闭|显示
-	GuiControl, Choose, Gui_OnOff, % Gui_OnOff+1
-	Gui, 55:Add, Text, x+82 yp+2, 提示时间
-	Gui, 55:Add, Edit, x+5 yp-2 w60 h25 vGui_Display_Time, %Gui_Display_Time%
-	Gui, 55:Add, Text, x+10 yp+3, 毫秒
-	Gui, 55:Add, Text, xm+%left_margin% yp+40, 文字大小
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vGui_Font_Size, %Gui_Font_Size%
-	Gui, 55:Add, Text, x+10 yp+3, 榜
-	Gui, 55:Add, Text, x+122 yp, 透明度
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vGui_Font_Transparency, %Gui_Font_Transparency%
-	Gui, 55:Add, Text, x+10 yp+3, (0-255)
-	Gui, 55:Add, Text, xm+%left_margin% yp+40, 水平位置
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vGui_X_Pos_Coef, %Gui_X_Pos_Coef%
-	Gui, 55:Add, Text, x+10 yp+3, (0-100)
-	Gui, 55:Add, Text, x+82 yp, 垂直位置
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vGui_Y_Pos_Coef, %Gui_Y_Pos_Coef%
-	Gui, 55:Add, Text, x+10 yp+3, (0-100)
-
-	Gui, 55:Add, GroupBox, xm-10 y+30 w%group_width_55% h185, 【切换提示-类ToolTip】设置
-	Gui, 55:Add, Text, cred xm+%left_margin% yp+30, 切换提示
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vTT_OnOff, 关闭|显示
-	GuiControl, Choose, TT_OnOff, % TT_OnOff+1
+	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vTT_OnOff_Style, 关闭|鼠标位置|输入+鼠标位置|固定位置|输入+固定位置
+	GuiControl, Choose, TT_OnOff_Style, % TT_OnOff_Style+1
 	Gui, 55:Add, Text, x+82 yp+2, 提示时间
 	Gui, 55:Add, Edit, x+5 yp-2 w60 h25 vTT_Display_Time, %TT_Display_Time%
-	Gui, 55:Add, Text, x+10 yp+3, 毫秒
+	Gui, 55:Add, Text, x+10 yp+2, 毫秒
 	Gui, 55:Add, Text, xm+%left_margin% yp+40, 文字大小
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vTT_Font_Size, %TT_Font_Size%
-	Gui, 55:Add, Text, x+10 yp+3, 榜
-	Gui, 55:Add, Text, x+122 yp, 透明度
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vTT_Font_Transparency, %TT_Font_Transparency%
-	Gui, 55:Add, Text, x+10 yp+3, (0-255)
-	Gui, 55:Add, Text, xm+%left_margin% yp+40, 水平偏移
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vTT_X_Shift, %TT_X_Shift%
-	Gui, 55:Add, Text, x+10 yp+3, 像素
-	Gui, 55:Add, Text, x+98 yp, 垂直偏移
-	Gui, 55:Add, Edit, x+5 yp-3 w60 h25 vTT_Y_Shift, %TT_Y_Shift%
-	Gui, 55:Add, Text, x+10 yp+3, 像素
-	Gui, 55:Add, Text, xm+%left_margin% yp+40, 提示位置
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vShowSwitch_Pos, 鼠标位置|输入位置优先
-	GuiControl, Choose, ShowSwitch_Pos, % ShowSwitch_Pos+1
+	Gui, 55:Add, Edit, x+5 yp-2 w60 h25 vTT_Font_Size, %TT_Font_Size%
+	Gui, 55:Add, Text, x+10 yp+2, 榜 (输入,固定)
+	Gui, 55:Add, Text, x+59 yp, 透明度
+	Gui, 55:Add, Edit, x+5 yp-2 w60 h25 vTT_Transparency, %TT_Transparency%
+	Gui, 55:Add, Text, x+10 yp-5, (0-255)`n(输入,固定)
+	Gui, 55:Add, Text, xm+%left_margin% yp+47, 提示偏移
+	Gui, 55:Add, Edit, x+5 yp-2 w60 h25 vTT_Shift, %TT_Shift%
+	Gui, 55:Add, Text, x+10 yp+2, (x,y) 像素 (输入)
+	Gui, 55:Add, Text, x+35 yp, 固定位置
+	Gui, 55:Add, Edit, x+5 yp-2 w60 h25 vTT_Pos_Coef, %TT_Pos_Coef%
+	Gui, 55:Add, Text, x+10 yp+2, (x,y) (0-100)
 
-	Gui, 55:Tab
-	Gui, 55:Add, Button, Default w75 x110 y610 GSet_OK, 确定
-	Gui, 55:Add, Button, w75 x+20 yp G55GuiClose, 取消
-	Gui, 55:Add, Button, w75 x+20 yp GSet_ReSet, 恢复默认
-	gui, 55:Font, underline
-	Gui, 55:Add, Text, Cblue x+20 yp-5 GgMenu_Config, 配置文件
-	Gui, 55:Add, Text, Cblue xp+60 yp+1 GgMenu_Icos, 图标文件
-	Gui, 55:Add, Text, Cblue xp-60 yp+20 GgMenu_Curs, 鼠标指针文件
-	Gui, 55:Font, norm , Microsoft YaHei
-
-	Gui, 55:Tab, 基础设置2
-	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h110, 【托盘图标】设置
+	Gui, 55:Add, GroupBox, xm-10 y+32 w%group_width_55% h109, 【托盘图标】设置
 	Gui, 55:Add, Text, cred xm+%left_margin% yp+30, 托盘图标
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vTray_Display, 关闭|显示
 	GuiControl, Choose, Tray_Display, % Tray_Display+1
-	Gui, 55:Add, Text, x+46 yp+1, 图标显示输入法
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vTray_Display_KBL, 关闭|显示
+	Gui, 55:Add, Text, x+82 yp+2, 双击图标
+	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vTray_Double_Click, %TrayFuncState%
+	GuiControl, Choose, Tray_Double_Click, % Tray_Double_Click+1
+	Gui, 55:Add, Text, xm+left_margin-12 yp+43, 图标输入法
+	Gui, 55:Add, DropDownList, x+5 yp-3 w%text_width% vTray_Display_KBL, %OnOffState%
 	GuiControl, Choose, Tray_Display_KBL, % Tray_Display_KBL+1
-	Gui, 55:Add, Text, xm+%left_margin% yp+43, 双击图标
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vDouble_Click_Open_KBL, %TrayFuncState%
-	GuiControl, Choose, Double_Click_Open_KBL, % Double_Click_Open_KBL+1
+	Gui, 55:Add, Text, x+82 yp+3, 图标样式
+	Gui, 55:Add, DropDownList, x+5 yp-3 w%text_width% vTray_Display_Style ggChange_Tray_Display_Style, %ExistIcoStyles%
+	GuiControl, Choose, Tray_Display_Style, % TransformStateReverse(ExistIcoStyles,Tray_Display_Style)+1
+	Gui, 55:Add, Picture, x+10 yp w24 h24 HwndTray_Display_Style_Pic_hwnd, % CNico_path
+	Gosub, gChange_Tray_Display_Style
 
-	Gui, 55:Add, GroupBox, xm-10 y+25 w%group_width_55% h110, 【鼠标指针】设置
-	Gui, 55:Add, Text, cred xm+left_margin-12 yp+22, %A_Space%鼠标指针`n显示输入法
-	Gui, 55:Add, DropDownList, x+5 yp+6 w%text_width% vCur_Launch, %OnOffState%
+	Gui, 55:Add, GroupBox, xm-10 y+25 w%group_width_55% h109, 【鼠标指针】设置
+	Gui, 55:Add, Text, cred xm+left_margin-12 yp+30, 鼠标输入法
+	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vCur_Launch, %OnOffState%
 	GuiControl, Choose, Cur_Launch, % Cur_Launch+1
-	Gui, 55:Add, Text, x+58 yp+1, 鼠标指针格式
-	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vCur_Format, cur|ani
-	GuiControl, Choose, Cur_Format, % Cur_Format+1
-	Gui, 55:Add, Text, xm+left_margin-12 yp+35, %A_Space%鼠标指针`n对应分辨率
-	Gui, 55:Add, DropDownList, x+5 yp+6 w%text_width% vCur_Size, 自动%ExistCurSize%
+	Gui, 55:Add, Text, x+82 yp+2, 鼠标样式
+	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vCur_Launch_Style ggChange_Cur_Launch_Style, %ExistCurStyles%
+	GuiControl, Choose, Cur_Launch_Style, % TransformStateReverse(ExistCurStyles,Cur_Launch_Style)+1
+	Gui, 55:Add, Picture, x+10 yp w24 h24 HwndCur_Launch_Style_Pic_hwnd, % CurPathObj[7]
+	Gosub, gChange_Cur_Launch_Style
+	Gui, 55:Add, Text, xm+left_margin-12 yp+43, 鼠标分辨率
+	Gui, 55:Add, DropDownList, x+5 yp-3 w%text_width% vCur_Size, 自动%ExistCurSize%
 	GuiControl, Choose, Cur_Size, % Cur_Size=0?1:getIndexDropDownList(ExistCurSize,Cur_Size)
 
-	Gui, 55:Add, GroupBox, xm-10 y+25 w%group_width_55% h210, 【屏蔽】设置( | 分隔)
-	Gui, 55:Add, Text, cred xm yp+23, 【热键】
-	Gui, 55:Add, Text, x+5 yp, 屏蔽程序列表
-	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55% r3 vDisable_HotKey_App_List, %Disable_HotKey_App_List%
-	Gui, 55:Add, Text, cred xm yp+68, 【自动切换】
-	Gui, 55:Add, Text, x+5 yp, 屏蔽程序列表
-	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55% r3 vDisable_Switch_App_List, %Disable_Switch_App_List%
+	Gui, 55:Tab
+	Gui, 55:Add, Button, Default w75 x110 y625 GgSet_OK, 确定
+	Gui, 55:Add, Button, w75 x+20 yp G55GuiClose, 取消
+	Gui, 55:Add, Button, w75 x+20 yp GgSet_ReSet, 恢复默认
+	gui, 55:Font, underline
+	Gui, 55:Add, Text, Cblue x+20 yp-5  GgMenu_Config, 配置文件
+	Gui, 55:Add, Text, Cblue xp+60 yp GgMenu_Icos, 图标文件
+	Gui, 55:Add, Text, Cblue xp-60 yp+20 GgMenu_Curs, 鼠标文件
+	Gui, 55:Add, Text, Cblue xp+60 yp GgMenu_Help, 帮助文档
+	Gui, 55:Font, norm , Microsoft YaHei
+
+	Gui, 55:Tab, 基础设置2
+	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h322, 【屏蔽】设置（换行分隔）
+	Gui, 55:Add, Edit, xm yp+45 w%group_list_width_55% r3 vDisable_HotKey_App_List HwndDisableHotKey_hwnd, %Disable_HotKey_App_List%
+	Gui, 55:Add, Text, cred xm yp-24, 【热键】
+	Gui, 55:Add, Text, x+5 yp, 屏蔽窗口列表
+	Gui, 55:Add, Button, w30 h20 x400 yp vvCurrentWin_Add_Disable_HotKey ggCurrentWin_Add, +
+	Gui, 55:Add, Button, w30 h20 x+5 yp vvCurrentWin_Sub_Disable_HotKey ggCurrentWin_Sub, -
+	Gui, 55:Add, Text, cred xm yp+101, 【自动切换】
+	Gui, 55:Add, Text, x+5 yp, 屏蔽窗口列表
+	Gui, 55:Add, Button, w30 h20 x400 yp vvCurrentWin_Add_Disable_Switch ggCurrentWin_Add, +
+	Gui, 55:Add, Button, w30 h20 x+5 yp vvCurrentWin_Sub_Disable_Switch ggCurrentWin_Sub, -
+	Gui, 55:Add, Edit, xm yp+24 w%group_list_width_55% r3 vDisable_Switch_App_List HwndDisableSwitch_hwnd, %Disable_Switch_App_List%
+	Gui, 55:Add, Text, cred xm yp+77, 【切换提示】
+	Gui, 55:Add, Text, x+5 yp, 屏蔽窗口列表
+	Gui, 55:Add, Button, w30 h20 x400 yp vvCurrentWin_Add_Disable_TTShow ggCurrentWin_Add, +
+	Gui, 55:Add, Button, w30 h20 x+5 yp vvCurrentWin_Sub_Disable_TTShow ggCurrentWin_Sub, -
+	Gui, 55:Add, Edit, xm yp+24 w%group_list_width_55% r3 vDisable_TTShow_App_List HwndDisableTTShow_hwnd, %Disable_TTShow_App_List%
 
 	Gui, 55:Tab, 热键配置
-	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h107, 【窗口】添加移除快捷键
+	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h110, 【窗口】添加移除快捷键
 	Gui, 55:Add, Text, xm+%left_margin% yp+22, %A_Space%添加至`n中文窗口
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Add_To_Cn, %Hotkey_Add_To_Cn%
 	Gui, 55:Add, Text, x+70 yp-6,  添加至英文`n(中文)窗口
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Add_To_CnEn, %Hotkey_Add_To_CnEn%
-	Gui, 55:Add, Text, xm+left_margin-12 yp+34, 添加至英文`n输入法窗口
+	Gui, 55:Add, Text, xm+left_margin-12 yp+35, 添加至英文`n输入法窗口
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Add_To_En, %Hotkey_Add_To_En%
 	Gui, 55:Add, Text, x+70 yp-6,  %A_Space%%A_Space%移除从`n中英文窗口
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Remove_From_All, %Hotkey_Remove_From_All%
 
-	Gui, 55:Add, GroupBox, xm-10 y+22 w%group_width_55% h188, 【输入法】快捷键
+	Gui, 55:Add, GroupBox, xm-10 y+22 w%group_width_55% h192, 【输入法】快捷键
 	Gui, 55:Add, Text, xm+left_margin-12 yp+30, 显示输入法
 	Gui, 55:Add, Hotkey, x+5 yp-2 w%text_width% vHotkey_Display_KBL, %Hotkey_Display_KBL%
-	Gui, 55:Add, Text, x+70 yp+1, 切换至中文
+	Gui, 55:Add, Text, x+70 yp+2, 切换至中文
 	Gui, 55:Add, Hotkey, x+5 yp-2 w%text_width% vHotkey_Set_Chinese, %Hotkey_Set_Chinese%
 	Gui, 55:Add, Text, xm+left_margin-12 yp+35, 切换至英文`n%A_Space%%A_Space%(中文)
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Set_ChineseEnglish, %Hotkey_Set_ChineseEnglish%
 	Gui, 55:Add, Text, x+70 yp-6, 切换至英文`n%A_Space%输入法
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Set_English, %Hotkey_Set_English%
-	Gui, 55:Add, Text, xm+left_margin-12 yp+34, 切换中英文`n%A_Space%%A_Space%(中文)
-	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_toggle_CN_CNEN, %Hotkey_toggle_CN_CNEN%
+	Gui, 55:Add, Text, xm+left_margin-12 yp+35, 切换中英文`n%A_Space%%A_Space%(中文)
+	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Toggle_CN_CNEN, %Hotkey_Toggle_CN_CNEN%
 	Gui, 55:Add, Text, x+70 yp-6, 切换中英文`n%A_Space%输入法
-	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_toggle_CN_EN, %Hotkey_toggle_CN_EN%
+	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Toggle_CN_EN, %Hotkey_Toggle_CN_EN%
 	Gui, 55:Add, Text, xm+left_margin-12 yp+43, 重置输入法
 	Gui, 55:Add, Hotkey, x+5 yp-2 w%text_width% vHotkey_Reset_KBL, %Hotkey_Reset_KBL%
 
 
-	Gui, 55:Add, GroupBox, xm-10 y+21 w%group_width_55% h67, 【自动切换】程序快捷键
+	Gui, 55:Add, GroupBox, xm-10 y+21 w%group_width_55% h69, 【自动切换】程序快捷键
 	Gui, 55:Add, Text, xm+%left_margin% yp+22, %A_Space%%A_Space%停止`n自动切换
 	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Stop_KBLAS, %Hotkey_Stop_KBLAS%
 	Gui, 55:Add, Text, x+70 yp-6, 获取输入法`n%A_Space%%A_Space%IME代码
-	Gui, 55:Add, Hotkey, x+5 yp+5 w%text_width% vHotkey_Get_KeyBoard, %Hotkey_Get_KeyBoard%
+	Gui, 55:Add, Hotkey, x+5 yp+6 w%text_width% vHotkey_Get_KeyBoard, %Hotkey_Get_KeyBoard%
 
-	Gui, 55:Add, GroupBox, xm-10 y+24 w%group_width_55% h153, 【特殊】热键
+	Gui, 55:Add, GroupBox, xm-10 y+24 w%group_width_55% h158, 【特殊】热键
 	temp := left_margin + 7
 	Gui, 55:Add, Text, xm+%temp% yp+30 cred, 左Shift%A_Space%
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vHotkey_Left_Shift, %OperationState%
 	GuiControl, Choose, Hotkey_Left_Shift, % Hotkey_Left_Shift+1
-	Gui, 55:Add, Text, x+89 yp+1 cred, 右Shift%A_Space%
+	Gui, 55:Add, Text, x+89 yp+2 cred, 右Shift%A_Space%
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vHotkey_Right_Shift, %OperationState%
 	GuiControl, Choose, Hotkey_Right_Shift, % Hotkey_Right_Shift+1
 	temp := left_margin + 12
 	Gui, 55:Add, Text, xm+%temp% yp+43, 左Ctrl%A_Space%
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vHotkey_Left_Ctrl, %OperationState%
 	GuiControl, Choose, Hotkey_Left_Ctrl, % Hotkey_Left_Ctrl+1
-	Gui, 55:Add, Text, x+94 yp+1, 右Ctrl%A_Space%
+	Gui, 55:Add, Text, x+94 yp+2, 右Ctrl%A_Space%
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vHotkey_Right_Ctrl, %OperationState%
 	GuiControl, Choose, Hotkey_Right_Ctrl, % Hotkey_Right_Ctrl+1
 	temp := left_margin + 17
 	Gui, 55:Add, Text, xm+%temp% yp+43, 左Alt%A_Space%
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vHotkey_Left_Alt, %OperationState%
 	GuiControl, Choose, Hotkey_Left_Alt, % Hotkey_Left_Alt+1
-	Gui, 55:Add, Text, x+99 yp+1, 右Alt%A_Space%
+	Gui, 55:Add, Text, x+99 yp+2, 右Alt%A_Space%
 	Gui, 55:Add, DropDownList, x+5 yp-2 w%text_width% vHotkey_Right_Alt, %OperationState%
 	GuiControl, Choose, Hotkey_Right_Alt, % Hotkey_Right_Alt+1
 
 	Gui, 55:Tab, 中英窗口
-	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h539, 【中英文窗口】应用记录(如需手动添加，请按照示例格式，在下方添加)
-	Gui, 55:Add, Text, cred xm yp+23, 【中文】
+	group_list_width_55_KBLwin := group_list_width_55*0.75
+	group_list_width_55_KBLwinGroup := group_list_width_55-group_list_width_55_KBLwin-10
+	wingroupXpos := group_list_width_55_KBLwin+50
+	wingroupAddButtonXpos := group_list_width_55_KBLwin-50
+	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h548, 【中英文窗口】设置（手动添加请按照示例格式）
+	Gui, 55:Add, Edit, xm yp+45 w%group_list_width_55_KBLwin% r5 vINI_CN HwndKBLWinsCN_hwnd, %INI_CN%
+	Gui, 55:Add, Edit, +ReadOnly cgreen x+10 yp w%group_list_width_55_KBLwinGroup% r5 , %Custom_Win_Group_Cn%
+	Gui, 55:Add, Text, cred xm yp-24, 【中文】
 	Gui, 55:Add, Text, x+5 yp, 窗口
-	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55% r5 vINI_CN, %INI_CN%
-	Gui, 55:Add, Text, cred xm yp+103, 【英文】
+	Gui, 55:Add, Button, w30 h20 x%wingroupAddButtonXpos% yp vvCurrentWin_Add_Cn ggCurrentWin_Add, +
+	Gui, 55:Add, Button, w30 h20 x+5 yp vvCurrentWin_Sub_Cn ggCurrentWin_Sub, -
+	Gui, 55:Add, Text, x%wingroupXpos% yp cred, 【窗口组】
+	Gui, 55:Add, Text, cred xm yp+137, 【英文】
 	Gui, 55:Add, Text, x+5 yp, 窗口（中文输入法）
-	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55% r11 vINI_EN, %INI_EN%
-	Gui, 55:Add, Text, cred xm yp+208, 【英文】
+	Gui, 55:Add, Button, w30 h20 x%wingroupAddButtonXpos% yp vvCurrentWin_Add_CnEn ggCurrentWin_Add, +
+	Gui, 55:Add, Button, w30 h20 x+5 yp vvCurrentWin_Sub_CnEn ggCurrentWin_Sub, -
+	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55_KBLwin% r11 vINI_CNEN HwndKBLWinsCNEN_hwnd, %INI_CNEN%
+	Gui, 55:Add, Edit, +ReadOnly cgreen x+10 yp w%group_list_width_55_KBLwinGroup% r11 , %Custom_Win_Group_CnEn%
+	Gui, 55:Add, Text, cred xm yp+209, 【英文】
 	Gui, 55:Add, Text, x+5 yp, 窗口（英文输入法）
-	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55% r7 vINI_ENEN, %INI_ENEN%
+	Gui, 55:Add, Button, w30 h20 x%wingroupAddButtonXpos% yp vvCurrentWin_Add_En ggCurrentWin_Add, +
+	Gui, 55:Add, Button, w30 h20 x+5 yp vvCurrentWin_Sub_En ggCurrentWin_Sub, -
+	Gui, 55:Add, Edit, xm yp+22 w%group_list_width_55_KBLwin% r7 vINI_EN HwndKBLWinsEN_hwnd, %INI_EN%
+	Gui, 55:Add, Edit, +ReadOnly cgreen x+10 yp w%group_list_width_55_KBLwinGroup% r7 , %Custom_Win_Group_En%
 
 	Gui, 55:Tab, 高级窗口
-	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h268, 自定义窗口组（双击编辑查看，|分隔多个窗口内容）
-	Gui, 55:Add, Button, w30 h20 xm+380 yp-2 vButton1 ggAdvanced_Add, +
+	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h275, 【自定义】窗口组（双击编辑查看，|分隔多个窗口内容）
+	Gui, 55:Add, ListView, Count1 vahkGroupWin ggAdvanced_Config xm yp+22 r10 w%group_list_width_55%, 序号|窗口组|状态|内容|说明
+	Gui, 55:Add, Button, w30 h20 xm+380 yp-25 vButton1 ggAdvanced_Add, +
 	Gui, 55:Add, Button, w30 h20 xm+420 yp vButton2 ggAdvanced_Remove, -
-	Gui, 55:Add, ListView, Count1 vahkGroupWin ggAdvanced_Config xm yp+24 r10 w%group_list_width_55%, 序号|窗口组|状态|内容|说明
 		ListViewUpdate_Custom_Win_Group(Custom_Win_Group)
 
-	Gui, 55:Add, GroupBox, xm-10 y+11 w%group_width_55% h268, 自定义操作（双击编辑查看，|分割多个热字串和热键）
-	Gui, 55:Add, Button, w30 h20 xm+380 yp-2 vButton3 ggAdvanced_Add, +
+	Gui, 55:Add, GroupBox, xm-10 y+277 w%group_width_55% h254, 自定义操作（双击编辑查看，|分割多个热字串和热键）
+	Gui, 55:Add, ListView, Count1 vCustomOperation ggAdvanced_Config xm yp+22 r9 w%group_list_width_55%, 序号|窗口组|热字串(s-)或热键(k-)|操作|说明
+	Gui, 55:Add, Button, w30 h20 xm+380 yp-25 vButton3 ggAdvanced_Add, +
 	Gui, 55:Add, Button, w30 h20 xm+420 yp vButton4 ggAdvanced_Remove, -
-	Gui, 55:Add, ListView, Count1 vCustomOperation ggAdvanced_Config xm yp+24 r10 w%group_list_width_55%, 序号|窗口组|热字串(s-)或热键(k-)|操作|说明
 		ListViewUpdate_Custom_Hotstring(Custom_Hotstring)
 
 	Gui, 55:Tab, 高级配置
-	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h539, 高级配置（双击编辑查看）
+	Gui, 55:Add, GroupBox, xm-10 y+10 w%group_width_55% h548, 【高级】配置（双击编辑查看）
 	Gui, 55:Add, ListView, Count3 vAdvancedConfig ggAdvanced_Config xm yp+22 r23 w%group_list_width_55%, 序号|配置名称|状态|值|说明
-		LV_Add(, 1, "内部关联", openExtRunList_num, Open_Ext,"-内部关联文件路径，用于打开配置文件和路径`n兼容RA[RunAnyConfig.ini]，支持相对路径")
+		LV_Add(, 1, "内部关联", openExtRunList_num, Open_Ext,"-内部关联文件路径，用于打开配置文件和路径等`n-支持相对路径，兼容RA[RunAnyConfig.ini]（可以在中英窗口-移除窗口中利用RA无路径显示图标）")
 		LV_Add(, 2, "快捷键兼容", Outer_InputKey_Compatible, Outer_InputKey_Compatible,"-软件内快捷键兼容：`n0：适用于左右shift分别对应中英文场景；`n1：适用于单shift切换中英文场景，兼容输入法，不影响中英文符号输入")
 		LV_Add(, 3, "左键点击输入位置显示输入法状态", Left_Mouse_ShowKBL_State, Left_Mouse_ShowKBL,"-在指定窗口组左键点击提示输入法：`n1.参数1为开关，参数2为生效窗口组`n2.参数使用|分隔")
 		LV_Add(, 4, "左键弹起后提示输入法状态生效窗口", Left_Mouse_ShowKBL_State, Left_Mouse_ShowKBL_Up,"-在指定窗口组左键点击提示输入法时，使用左键弹起响应：`n参数为窗口或窗口组")
 		LV_Add(, 5, "定时重置输入法", "秒", SetTimer_Reset_KBL,"-无操作固定时间重置输入法（秒）：`n1.参数1为时间，参数2为窗口组`n2.参数使用|分隔")
-		LV_Add(, 6, "切换重置大小写", TransformState(DefaultCapsLockState,Reset_CapsLock_State), Reset_CapsLock,"-切换输入法后自动重置大小写：`n1.参数1为大小写状态(0为不重置，1为小写，2为大写)，参数2为屏蔽窗口组，该窗口组将不生效`n2.参数使用|分隔")
-		LV_Add(, 7, "上屏字符内容", Enter_Inputing_Content, Enter_Inputing_Content,"-中文输入法状态下输入待上屏的字符处理（需关闭输入法shift，开启软件内快捷键切换）：`n0表示使用输入法处理，1表示丢弃字符，2表示上屏字符，3表示上屏第一个候选内容`n目前已支持输入法：搜狗输入法、QQ五笔输入法、QQ拼音输入法、手心输入法")
-		LV_Add(, 8, "提示颜色", GuiTTColorObj.Count(), GuiTTColor,"-Gui和类ToolTip颜色设置：包含三个参数（|隔开）：背景色|中文字体颜色|英文字体颜色")
+		LV_Add(, 6, "切换重置大小写", TransformState(DefaultCapsLockState,Reset_CapsLock_State), Reset_CapsLock,"-切换输入法后自动重置大小写：`n1.参数1为大小写状态（0为不重置，1为小写，2为大写），参数2为屏蔽窗口组，该窗口组将不生效`n2.参数使用|分隔")
+		LV_Add(, 7, "上屏字符内容", Enter_Inputing_Content, Enter_Inputing_Content,"-中文输入法状态下输入待上屏的字符处理`n-需关闭输入法shift，开启软件内快捷键切换：`n0表示使用输入法处理，1表示丢弃字符，2表示上屏字符，3表示上屏第一个候选内容`n目前已支持输入法：搜狗输入法、QQ五笔输入法、QQ拼音输入法、手心输入法")
+		LV_Add(, 8, "提示颜色", GuiTTColorObj.Count(), GuiTTColor,"-切换提示颜色设置：`n包含四个参数（|隔开）：中文背景色|英文背景色|中文字体颜色|英文字体颜色")
+		LV_Add(, 9, "托盘提示内容", StrSplit(TrayTipContent, "``n").Count(), StrReplace(TrayTipContent, "``n", "`n"),"-托盘提示内容：`n1.变量可以使用内部变量、ahk变量、win系统变量`n2.变量使用百分号包裹（%变量名%），变量详情请查看帮助文档")
 		LV_ModifyCol(1,group_list_width_55*0.08 " Integer Center")
 		LV_ModifyCol(2,group_list_width_55*0.22)
 		LV_ModifyCol(3,group_list_width_55*0.08 " Integer Center")
 		LV_ModifyCol(4,group_list_width_55*0.38)
-		LV_ModifyCol(5,group_list_width_55*0.23)
+		LV_ModifyCol(5,group_list_width_55*0.235)
 
-	TrayTipContent := A_IsAdmin=1?"（管理员）":"（非管理员）"
-	Gui, 55:Show,w%Gui_width_55%, 设置：%APPName% v%APPVersion%%TrayTipContent%
-	SetTimer, Hide_Gui, Off
+	GuiTitleContent := A_IsAdmin=1?"（管理员）":"（非管理员）"
+	Gui, 55:Show,w%Gui_width_55%, 设置：%APPName% v%APPVersion%%GuiTitleContent%
 	Critical off
 Return
 
-ListViewUpdate_Custom_Win_Group(Custom_Win_Group){ ; 更新Custom_Win_Group数据
+ListViewUpdate_Custom_Win_Group(Custom_Win_Group) { ; 更新Custom_Win_Group数据
 	Gui, ListView, ahkGroupWin
 	LV_Delete()
 	Loop, parse, Custom_Win_Group, `n, `r
@@ -1391,7 +1439,7 @@ ListViewUpdate_Custom_Win_Group(Custom_Win_Group){ ; 更新Custom_Win_Group数�
 	LV_ModifyCol(5,group_list_width_55*0.24)
 }
 
-ListViewUpdate_Custom_Hotstring(Custom_Hotstring){ ; 更新Custom_Hotstring数据
+ListViewUpdate_Custom_Hotstring(Custom_Hotstring) { ; 更新Custom_Hotstring数据
 	Gui, ListView, CustomOperation
 	LV_Delete()
 	Loop, parse, Custom_Hotstring, `n, `r
@@ -1406,27 +1454,27 @@ ListViewUpdate_Custom_Hotstring(Custom_Hotstring){ ; 更新Custom_Hotstring数�
 	LV_ModifyCol(5,group_list_width_55*0.24)
 }
 
-ListViewUpdate_Custom_Advanced_Config(){ ; 更新高级配置数据
+ListViewUpdate_Custom_Advanced_Config() { ; 更新高级配置数据
 	Gui, ListView, AdvancedConfig
-	LV_GetText(OutputVar, 5 , 4)
-	LV_Modify(5, "Col3", TransformState(DefaultCapsLockState,SubStr(OutputVar, 1, 1)))
+	LV_GetText(OutputVar, 6, 4)
+	LV_Modify(6, "Col3", TransformState(DefaultCapsLockState,SubStr(OutputVar, 1, 1)))
 }	
 
-TransformState(String,State){ ;将状态转换为文字
+TransformState(String,State) { ; 将状态转换为文字
 	Loop, parse, String, |
 	    If (State+1=A_Index)
 			Return A_LoopField
 	Return State
 }
 
-TransformStateReverse(String,State){ ;将文字转换为状态
+TransformStateReverse(String,State) { ; 将文字转换为状态
 	Loop, parse, String, |
 	    If (State=A_LoopField)
 			Return A_Index-1
 	Return State	
 }
 
-getIndexDropDownList(Str,objStr){ ;根据字符串查找DropDownList中位置
+getIndexDropDownList(Str,objStr) { ; 根据字符串查找DropDownList中位置
 	Loop, parse, Str, |
 	{
 	    If (A_LoopField=objStr)
@@ -1435,7 +1483,7 @@ getIndexDropDownList(Str,objStr){ ;根据字符串查找DropDownList中位置
 	Return pos
 }
 
-Menu_About: ;页面GUI：关于
+Menu_About: ; 关于页面Gui
 	Critical On
 	Menu, Tray, Icon, %A_AhkPath%
 	Gui, 99:Destroy
@@ -1455,7 +1503,7 @@ Menu_About: ;页面GUI：关于
 				<h4>软件特色</h4>
 				<ol>
 				  <li>根据程序窗口切换中英文输入法</li>
-				  <li>包括GUI、Tooltip、图标、鼠标指针四种显示输入法状态功能</li>
+				  <li>包括切换提示、托盘图标、鼠标指针三种显示输入法状态功能</li>
 				  <li>设置快捷键快速添加指定窗口</li>
 				</ol>
 				<h4>使用建议</h4>
@@ -1485,43 +1533,59 @@ Menu_About: ;页面GUI：关于
 	Gui, 99:Add, Link, xm+18 y+10, AHK中文论坛：<a href="https://www.autoahk.com/">https://www.autoahk.com/</a>
 	Gui, 99:Font
 	Critical Off
-	TrayTipContent := A_IsAdmin=1?"（管理员）":"（非管理员）"
-	Gui, 99:Show, AutoSize Center, 关于：%APPName% v%APPVersion%%TrayTipContent%
+	GuiTitleContent := A_IsAdmin=1?"（管理员）":"（非管理员）"
+	Gui, 99:Show, AutoSize Center, 关于：%APPName% v%APPVersion%%GuiTitleContent%
 return
 
-Menu_Stop: ;停止脚本
-	Gui, Hide
-	If (A_IsSuspended){
-		Menu, Tray, UnCheck, 停止
-		OnMessage(shell_msg_num, "shellMessage")
-		gosub, Reset_KBL
-	}Else{
-		Menu, Tray, Check, 停止
-		OnMessage(shell_msg_num, "")
-	}
-	Suspend
+Label_Hide_All: ; 隐藏所有Gui和TT
+	Gui, SwitchTT:Hide
+	Gui, SwitchTT1:Hide
 Return
 
-Menu_Reload: ;重新加载脚本
+SuspendedApp: ; 挂起脚本
+	try Menu, Tray, Rename, 停止, 恢复
+	try Menu, Tray, Check, 恢复
+	try Gosub, Label_Hide_All
+	Suspend, On
+Return
+
+UnSuspendedApp: ; 恢复挂起脚本
+	try Menu, Tray, Rename, 恢复, 停止
+	try Menu, Tray, UnCheck, 停止
+	gosub, Reset_KBL
+	Suspend, Off
+Return
+
+Menu_Stop: ; 停止脚本
+	If (A_IsSuspended){
+		OnMessage(shell_msg_num, "shellMessage")
+		Gosub, UnSuspendedApp
+	}Else{
+		OnMessage(shell_msg_num, "")
+		Gosub, SuspendedApp
+	}
+Return
+
+Menu_Reload: ; 重新加载脚本
 	try Reload
 	Sleep, 1000
 	Run, %A_AhkPath%%A_Space%"%A_ScriptFullPath%"
 	ExitApp
 Return
 
-Menu_Exit: ;关闭脚本
+Menu_Exit: ; 退出脚本
 	ExitApp
 Return
 
-99GuiClose: ;关闭GUI事件
+99GuiClose: ; 关闭GUI事件
 	gosub,Menu_Reload
 Return
 
-55GuiClose: ;取消按钮的功能
+55GuiClose: ; 关闭GUI事件
 	gosub,Menu_Reload
 return
 
-Set_OK: ;确认按钮
+gSet_OK: ; 设置确认按钮功能
 	Critical On
 	Thread, NoTimers,True
 	Gui, Submit
@@ -1530,18 +1594,14 @@ Set_OK: ;确认按钮
 	Launch_Admin := Launch_Admin="普通"?0:1
 	Auto_Switch := TransformStateReverse(OnOffState,Auto_Switch)
 	Default_Keyboard := TransformStateReverse(KBLSwitchState,Default_Keyboard)
-	Switch_Model := Switch_Model="严格切换"?0:1
 
-	Gui_OnOff := Gui_OnOff="关闭"?0:1
-	TT_OnOff := TT_OnOff="关闭"?0:1
-	ShowSwitch_Pos := ShowSwitch_Pos="鼠标位置"?0:1
+	TT_OnOff_Style := TT_OnOff_Style="关闭"?0:TT_OnOff_Style="鼠标位置"?1:TT_OnOff_Style="输入+鼠标位置"?2:TT_OnOff_Style="固定位置"?3:4
 
 	Tray_Display := Tray_Display="关闭"?0:1
-	Tray_Display_KBL := Tray_Display_KBL="关闭"?0:1
-	Double_Click_Open_KBL := TransformStateReverse(TrayFuncState,Double_Click_Open_KBL)
+	Tray_Display_KBL := TransformStateReverse(OnOffState,Tray_Display_KBL)
+	Tray_Double_Click := TransformStateReverse(TrayFuncState,Tray_Double_Click)
 
 	Cur_Launch := TransformStateReverse(OnOffState,Cur_Launch)
-	Cur_Format := Cur_Format="cur"?0:1
 	Cur_Size := Cur_Size="自动"?0:Cur_Size
 
 	Hotkey_Left_Shift := TransformStateReverse(OperationState,Hotkey_Left_Shift)
@@ -1555,35 +1615,31 @@ Set_OK: ;确认按钮
 	IniWrite, %Launch_Admin%, %INI%, 基本设置, 管理员启动
 	IniWrite, %Auto_Switch%, %INI%, 基本设置, 自动切换
 	IniWrite, %Default_Keyboard%, %INI%, 基本设置, 默认输入法
-	IniWrite, %Switch_Model%, %INI%, 基本设置, 切换模式
 
-	IniWrite, %Gui_OnOff%, %INI%, 基本设置, Gui切换提示
-	IniWrite, %Gui_Display_Time%, %INI%, 基本设置, Gui切换提示时间
-	IniWrite, %Gui_Font_Size%, %INI%, 基本设置, Gui切换提示文字大小
-	IniWrite, %Gui_Font_Transparency%, %INI%, 基本设置, Gui切换提示透明度
-	IniWrite, %Gui_X_Pos_Coef%, %INI%, 基本设置, Gui切换提示水平位置
-	IniWrite, %Gui_Y_Pos_Coef%, %INI%, 基本设置, Gui切换提示垂直位置
-
-	IniWrite, %TT_OnOff%, %INI%, 基本设置, ToolTip切换提示
-	IniWrite, %TT_Display_Time%, %INI%, 基本设置, ToolTip切换提示时间
-	IniWrite, %TT_Font_Size%, %INI%, 基本设置, ToolTip切换提示文字大小
-	IniWrite, %TT_Font_Transparency%, %INI%, 基本设置, ToolTip切换提示透明度
-	IniWrite, %TT_X_Shift%, %INI%, 基本设置, ToolTip切换提示水平偏移
-	IniWrite, %TT_Y_Shift%, %INI%, 基本设置, ToolTip切换提示垂直偏移
-	IniWrite, %ShowSwitch_Pos%, %INI%, 基本设置, 切换提示位置
+	IniWrite, %TT_OnOff_Style%, %INI%, 基本设置, 切换提示
+	IniWrite, %TT_Display_Time%, %INI%, 基本设置, 切换提示时间
+	IniWrite, %TT_Font_Size%, %INI%, 基本设置, 切换提示文字大小
+	IniWrite, %TT_Transparency%, %INI%, 基本设置, 切换提示透明度
+	IniWrite, %TT_Shift%, %INI%, 基本设置, 切换提示偏移
+	IniWrite, %TT_Pos_Coef%, %INI%, 基本设置, 切换提示固定位置
 	
 	If (Tray_Display=0){
 		MsgBox, 305, 自动切换输入法 KBLAutoSwitch, 图标隐藏后将无法打开设置页面，可以通过修改配置文件【KBLAutoSwitch.ini】-【托盘图标显示=1】恢复！`n确定要隐藏图标吗？
 		IfMsgBox, OK
 			IniWrite, %Tray_Display%, %INI%, 基本设置, 托盘图标显示
+	}Else{
+		IniWrite, %Tray_Display%, %INI%, 基本设置, 托盘图标显示
 	}
-	IniWrite, %Tray_Display_KBL%, %INI%, 基本设置, 图标显示输入法
-	IniWrite, %Double_Click_Open_KBL%, %INI%, 基本设置, 双击托盘图标
+	IniWrite, %Tray_Double_Click%, %INI%, 基本设置, 托盘图标双击
+	IniWrite, %Tray_Display_KBL%, %INI%, 基本设置, 托盘图标显示输入法
+	IniWrite, %Tray_Display_Style%, %INI%, 基本设置, 托盘图标样式
 	IniWrite, %Cur_Launch%, %INI%, 基本设置, 鼠标指针显示输入法
-	IniWrite, %Cur_Format%, %INI%, 基本设置, 鼠标指针格式
+	IniWrite, %Cur_Launch_Style%, %INI%, 基本设置, 鼠标指针样式
 	IniWrite, %Cur_Size%, %INI%, 基本设置, 鼠标指针对应分辨率
-	IniWrite, % Trim(Disable_HotKey_App_List, "|"), %INI%, 基本设置, 热键屏蔽程序列表
-	IniWrite, % Trim(Disable_Switch_App_List, "|"), %INI%, 基本设置, 切换屏蔽程序列表
+
+	IniWrite, % Trim(Disable_HotKey_App_List, " `t`n"), %INI%, 热键屏蔽窗口列表
+	IniWrite, % Trim(Disable_Switch_App_List, " `t`n"), %INI%, 切换屏蔽窗口列表
+	IniWrite, % Trim(Disable_TTShow_App_List, " `t`n"), %INI%, 切换提示屏蔽窗口列表
 
 	IniWrite, %Hotkey_Add_To_Cn%, %INI%, 热键设置, 添加至中文窗口
 	IniWrite, %Hotkey_Add_To_CnEn%, %INI%, 热键设置, 添加至英文(中文)窗口
@@ -1593,8 +1649,8 @@ Set_OK: ;确认按钮
 	IniWrite, %Hotkey_Set_Chinese%, %INI%, 热键设置, 切换中文
 	IniWrite, %Hotkey_Set_ChineseEnglish%, %INI%, 热键设置, 切换英文(中文)
 	IniWrite, %Hotkey_Set_English%, %INI%, 热键设置, 切换英文输入法
-	IniWrite, %Hotkey_toggle_CN_CNEN%, %INI%, 热键设置, 切换中英文(中文)
-	IniWrite, %Hotkey_toggle_CN_EN%, %INI%, 热键设置, 切换中英文输入法
+	IniWrite, %Hotkey_Toggle_CN_CNEN%, %INI%, 热键设置, 切换中英文(中文)
+	IniWrite, %Hotkey_Toggle_CN_EN%, %INI%, 热键设置, 切换中英文输入法
 	IniWrite, %Hotkey_Display_KBL%, %INI%, 热键设置, 显示当前输入法
 	IniWrite, %Hotkey_Reset_KBL%, %INI%, 热键设置, 重置当前输入法
 
@@ -1613,7 +1669,7 @@ Set_OK: ;确认按钮
 	Loop, % LV_GetCount()
 	{
 		LV_GetText(OutputVar, A_Index , 4)
-		OutputVar := Trim(OutputVar, "|")
+		OutputVar := StrReplace(Trim(OutputVar, "|"), "`n", "``n")
 		Switch A_Index
 		{
 			Case 1: IniWrite, %OutputVar%, %INI%, 高级设置, 内部关联
@@ -1624,6 +1680,7 @@ Set_OK: ;确认按钮
 			Case 6: IniWrite, %OutputVar%, %INI%, 高级设置, 切换重置大小写
 			Case 7: IniWrite, %OutputVar%, %INI%, 高级设置, 上屏字符内容
 			Case 8: IniWrite, %OutputVar%, %INI%, 高级设置, 提示颜色
+			Case 9: IniWrite, %OutputVar%, %INI%, 高级设置, 托盘提示内容
 		}
 	}
 
@@ -1634,14 +1691,14 @@ Set_OK: ;确认按钮
 	SetListViewData("自定义操作")
 
 	IniWrite, % Trim(INI_CN, " `t`n"), %INI%, 中文窗口
-	IniWrite, % Trim(INI_EN, " `t`n"), %INI%, 英文窗口
-	IniWrite, % Trim(INI_ENEN, " `t`n"), %INI%, 英文输入法窗口
+	IniWrite, % Trim(INI_CNEN, " `t`n"), %INI%, 英文窗口
+	IniWrite, % Trim(INI_EN, " `t`n"), %INI%, 英文输入法窗口
 	IniWrite, % Trim(INI_Focus_Control, " `t`n"), %INI%, 焦点控件切换窗口
 
 	gosub, Menu_Reload
 return
 
-getListViewData(Section){ ; 获取Listview数据
+getListViewData(Section) { ; 获取Listview数据
 	Loop, % LV_GetCount()
 	{
 		LV_GetText(OutputVar, A_Index, 1)
@@ -1659,14 +1716,14 @@ getListViewData(Section){ ; 获取Listview数据
 	Return Trim(IniWrite_Str,"`n")
 }
 
-SetListViewData(Section){ ; 保存Listview数据
+SetListViewData(Section) { ; 保存Listview数据
 	LV_ModifyCol(1,"Sort")
 	IniDelete, %INI%, %Section%
 	IniWrite_Str := getListViewData(Section)
 	IniWrite, %IniWrite_Str%, %INI%, %Section%
 }
 
-getLVNewOrder(){ ; 获取缺失序号
+getLVNewOrder() { ; 获取缺失序号
 	Loop % LV_GetCount()
 	{
 	    LV_GetText(Order, A_Index)
@@ -1676,7 +1733,7 @@ getLVNewOrder(){ ; 获取缺失序号
 	Return Order+1
 }
 
-Set_ReSet: ;重置按钮的功能
+gSet_ReSet: ; 重置按钮的功能
 	MsgBox, 49, 重置已有配置,此操作会删除所有KBLAutoSwitch本地配置，确认删除重置吗？
 	IfMsgBox Ok
 	{
@@ -1686,19 +1743,218 @@ Set_ReSet: ;重置按钮的功能
 	}
 return
 
-gMenu_Config: ;打开配置文件功能
+gMenu_Config: ; 打开配置文件功能
 	FilePathRun(INI)
 Return
 
-gMenu_Icos: ;打开图标文件路径
-	FilePathRun(A_ScriptDir "\Icos")
+gMenu_Icos: ; 打开图标文件路径
+	FilePathRun(A_ScriptDir "\Icos\" Tray_Display_Style)
 Return
 
-gMenu_Curs: ;打开鼠标指针文件路径
-	FilePathRun(A_ScriptDir "\Curs\" WindowsHeight "\" Cur_Suffix)
+gMenu_Curs: ; 打开鼠标指针文件路径
+	FilePathRun(A_ScriptDir "\Curs\" Cur_Launch_Style "\" WindowsHeight)
 Return
 
-gAdvanced_Add: ;自定义窗口添加
+gMenu_Help: ; 打开帮助文档
+	run, https://docs.qq.com/doc/DWHFxVXBNbWNxcWpa
+Return
+
+gChange_Tray_Display_Style: ; 变更托盘图标
+	GuiControlGet, OutputVar,, Tray_Display_Style
+	GuiControl,, %Tray_Display_Style_Pic_hwnd%, %A_ScriptDir%\Icos\%OutputVar%\%SystemUsesLightTheme_Str%_Cn.ico
+Return
+
+gChange_Cur_Launch_Style: ; 变更鼠标指针
+	GuiControlGet, OutputVar,, Cur_Launch_Style
+	ExistCurSize_Show := ""
+	Loop Files, %A_ScriptDir%\Curs\%OutputVar%\*, D
+		ExistCurSize_Show := ExistCurSize_Show "|" A_LoopFileName
+	GuiControl,, Cur_Size, |自动%ExistCurSize_Show%
+	GuiControl, Choose, Cur_Size, % Cur_Size=0?1:getIndexDropDownList(ExistCurSize_Show,Cur_Size)
+	GuiControl,, %Cur_Launch_Style_Pic_hwnd%, % getCurPath(OutputVar,1080,"NORMAL_Cn")
+Return
+
+gCurrentWin_Add: ; 添加当前已有窗口至KBL
+	global CurrentWin_AddFlag := A_GuiControl
+	Switch CurrentWin_AddFlag
+	{
+		Case "vCurrentWin_Add_Cn":GuiControlGet, KBLWins,, %KBLWinsCN_hwnd%
+		Case "vCurrentWin_Add_CnEn":GuiControlGet, KBLWins,, %KBLWinsCNEN_hwnd%
+		Case "vCurrentWin_Add_En":GuiControlGet, KBLWins,, %KBLWinsEN_hwnd%
+		Case "vCurrentWin_Add_Disable_HotKey":GuiControlGet, KBLWins,, %DisableHotKey_hwnd%
+		Case "vCurrentWin_Add_Disable_Switch":GuiControlGet, KBLWins,, %DisableSwitch_hwnd%
+		Case "vCurrentWin_Add_Disable_TTShow":GuiControlGet, KBLWins,, %DisableTTShow_hwnd%
+	}
+	Menu, Menu_KBLWin, Add, Item1,Label_Return
+	Menu, Menu_KBLWin, DeleteAll
+	Menu, Menu_KBLWin, Add, --取消--（添加）, Label_Return
+	Try Menu, Menu_KBLWin, Icon, --取消--（添加）,shell32.dll,132,24
+	Prev_DetectHiddenWindows := A_DetectHiddenWindows
+	DetectHiddenWindows off
+	NoRepeatObj := Object()
+	WinGet windows, List
+	Loop %windows%
+	{
+		id := windows%A_Index%
+		item_key_val := getINIItem("ahk_id " id)
+		item_key := item_key_val[0]
+		item_val := item_key_val[1]
+		item_regex := item_key_val[2]
+		If NoRepeatObj.HasKey(item_val)
+			Continue
+		If IsHasSameRegExStr(KBLWins,item_regex)
+			Continue
+		NoRepeatObj[item_val] := 1
+		AddMenu_KBLWin(id,item_key)
+	}
+	GuiControlGet, ControlHwnd, Hwnd, %A_GuiControl%
+    ControlGetPos, x, y, w, h, ,ahk_id %ControlHwnd%
+	Menu, Menu_KBLWin, Show,% x,% y+h+2
+	DetectHiddenWindows %Prev_DetectHiddenWindows%
+Return
+
+gCurrentWin_Sub: ; 删除已有窗口
+	global CurrentWin_SubFlag := A_GuiControl
+	Switch CurrentWin_SubFlag
+	{
+		Case "vCurrentWin_Sub_Cn":GuiControlGet, KBLWins,, %KBLWinsCN_hwnd%
+		Case "vCurrentWin_Sub_CnEn":GuiControlGet, KBLWins,, %KBLWinsCNEN_hwnd%
+		Case "vCurrentWin_Sub_En":GuiControlGet, KBLWins,, %KBLWinsEN_hwnd%
+		Case "vCurrentWin_Sub_Disable_HotKey":GuiControlGet, KBLWins,, %DisableHotKey_hwnd%
+		Case "vCurrentWin_Sub_Disable_Switch":GuiControlGet, KBLWins,, %DisableSwitch_hwnd%
+		Case "vCurrentWin_Sub_Disable_TTShow":GuiControlGet, KBLWins,, %DisableTTShow_hwnd%
+	}
+	Menu, Menu_KBLWin, Add, Item1,Label_Return
+	Menu, Menu_KBLWin, DeleteAll
+	Menu, Menu_KBLWin, Add, --取消--（移除）, Label_Return
+	Try Menu, Menu_KBLWin, Icon, --取消--（移除）,shell32.dll,132,24
+	Loop, parse, KBLWins, `n, `r
+	{
+		If (A_LoopField="")
+			Continue
+		If (euqalPos := InStr(A_LoopField, "=")){
+			ReadyKey := SubStr(A_LoopField,1,euqalPos-1)
+			ReadyValue := SubStr(A_LoopField,euqalPos+1)
+		}Else{
+			ReadyKey := ""
+			ReadyValue := A_LoopField
+		}
+		If (SubStr(ReadyValue, -3)=".exe" and !InStr(ReadyValue, "ahk_exe"))
+			ReadyValue := "ahk_exe " ReadyValue
+		WinGet, IcoPath, ProcessPath, %ReadyValue%
+		If (IcoPath=""){
+			RegExMatch(ReadyValue, "ahk_exe (.*\.exe)", SubPat)
+			IcoPath := getExePath(SubPat1)
+		}
+		Menu, Menu_KBLWin, Add, %A_LoopField%, Label_Sub_KBLWin
+		If (IcoPath) {
+			Try Menu, Menu_KBLWin, Icon, %A_LoopField%, %IcoPath%,,32
+			Catch
+				Menu, Menu_KBLWin, Icon, %A_LoopField%,shell32.dll,3,32
+		}Else
+				Menu, Menu_KBLWin, Icon, %A_LoopField%,shell32.dll,3,32
+	}
+	GuiControlGet, ControlHwnd, Hwnd, %A_GuiControl%
+    ControlGetPos, x, y, w, h, ,ahk_id %ControlHwnd%
+	Menu, Menu_KBLWin, Show,% x,% y+h+2
+Return
+
+getExePath(SubPat1){ ; 获取exe路径
+	If (SubPat1!="" && RunAnyEvFullPath!="")
+		try IniRead, ExePath, %RunAnyEvFullPath%, FullPath, %SubPat1%, %A_Space%
+	If (ExePath="")
+		Switch SubPat1
+		{
+			Case "Taskmgr.exe":ExePath:="C:\Windows\System32\Taskmgr.exe"
+			Case "cmd.exe":ExePath:="C:\Windows\System32\cmd.exe"
+			Case "explorer.exe":ExePath:="C:\Windows\explorer.exe"
+		}
+	Return ExePath
+}
+
+AddMenu_KBLWin(id,MenuItem) { ; 添加窗口Menu
+	WinGetTitle title, ahk_id %id%
+	WinGet, ExStyle, ExStyle, ahk_id %id%
+	if (ExStyle & 0x20 || title = "" || title = "Program Manager")
+		Return 0
+	WinGetClass class, ahk_id %id%
+	If (class = "ApplicationFrameWindow"){
+		WinGetText, text, ahk_id %id%
+		If (text = "")
+		{
+			WinGet, style, style, ahk_id %id%
+			If !(style = "0xB4CF0000")	 ; the window isn't minimized
+				Return 0
+		}
+	}
+	WinGet, IcoPath, ProcessPath, ahk_id %id%
+	If StrLen(MenuItem)>56 {
+		endPos := InStr(MenuItem, "-",,0,1)
+		endPos := endPos=0?-10:endPos
+		leastLen := endPos=0?(StrLen(MenuItem)-10):endPos
+		If (leastLen<46)
+			MenuItem := SubStr(MenuItem,1,leastLen) "..." SubStr(MenuItem,endPos)
+		Else
+			MenuItem := SubStr(MenuItem,1,20) "..." SubStr(MenuItem,endPos-26)
+	}
+	Menu, Menu_KBLWin, Add,%MenuItem%, Label_Add_KBLWin
+	Try Menu, Menu_KBLWin, Icon,%MenuItem%, %IcoPath%,,32
+	Catch
+		Menu, Menu_KBLWin, Icon,%MenuItem%,shell32.dll,3,32
+	WinMenuObj[MenuItem] := id
+	Return 1
+}
+
+Label_Add_KBLWin: ; 添加KBL窗口
+	WinId := WinMenuObj[A_ThisMenuItem]
+	item_key_val := getINIItem("ahk_id " WinId)
+	item := item_key_val[0] "=" item_key_val[1]
+	item := KBLWins=""?item:"`n" item
+	item_regex := item_key_val[2]
+	KBLWinsNew := KBLWins item
+	Switch CurrentWin_AddFlag
+	{
+		Case "vCurrentWin_Add_Cn":KBLWins_hwnd:=KBLWinsCN_hwnd,RemoveFlag:=1
+		Case "vCurrentWin_Add_CnEn":KBLWins_hwnd:=KBLWinsCNEN_hwnd,RemoveFlag:=1
+		Case "vCurrentWin_Add_En":KBLWins_hwnd:=KBLWinsEN_hwnd,RemoveFlag:=1
+		Case "vCurrentWin_Add_Disable_HotKey":KBLWins_hwnd:=DisableHotKey_hwnd,RemoveFlag:=0
+		Case "vCurrentWin_Add_Disable_Switch":KBLWins_hwnd:=DisableSwitch_hwnd,RemoveFlag:=0
+		Case "vCurrentWin_Add_Disable_TTShow":KBLWins_hwnd:=DisableTTShow_hwnd,RemoveFlag:=0
+	}
+	GuiControl,, %KBLWins_hwnd% , %KBLWinsNew%
+	WinMenuObj := Object()
+	If (RemoveFlag!=1)
+		Return
+	KBLList := KBLWinsCN_hwnd "," KBLWinsCNEN_hwnd "," KBLWinsEN_hwnd
+	Loop, parse, KBLList, `,
+	{
+	    If (A_LoopField=KBLWins_hwnd)
+	    	Continue
+	    Else {
+	    	GuiControlGet, KBLWins,, %A_LoopField%
+	    	RegExStr := IsHasSameRegExStr(KBLWins,item_regex)
+	    	KBLWinsNew := RegExReplace(KBLWins, RegExStr)
+	    	GuiControl,, %A_LoopField% , %KBLWinsNew%
+	    }
+	}
+Return
+
+Label_Sub_KBLWin: ; 移除KBL窗口
+	KBLWinsNew := StrReplace(KBLWins, "`n" A_ThisMenuItem)
+	KBLWinsNew := StrReplace(KBLWinsNew, A_ThisMenuItem "`n")
+	KBLWinsNew := StrReplace(KBLWinsNew, A_ThisMenuItem)
+	Switch CurrentWin_SubFlag
+	{
+		Case "vCurrentWin_Sub_Cn":GuiControl,, %KBLWinsCN_hwnd% , %KBLWinsNew%
+		Case "vCurrentWin_Sub_CnEn":GuiControl,, %KBLWinsCNEN_hwnd% , %KBLWinsNew%
+		Case "vCurrentWin_Sub_En":GuiControl,, %KBLWinsEN_hwnd% , %KBLWinsNew%
+		Case "vCurrentWin_Sub_Disable_HotKey":GuiControl,, %DisableHotKey_hwnd% , %KBLWinsNew%
+		Case "vCurrentWin_Sub_Disable_Switch":GuiControl,, %DisableSwitch_hwnd% , %KBLWinsNew%
+		Case "vCurrentWin_Sub_Disable_TTShow":GuiControl,, %DisableTTShow_hwnd% , %KBLWinsNew%
+	}
+Return
+
+gAdvanced_Add: ; 自定义窗口添加
 	ButtonNum := SubStr(A_GuiControl,7)
 	If (ButtonNum=1)
 		Gui, ListView, ahkGroupWin
@@ -1719,7 +1975,7 @@ gAdvanced_Add: ;自定义窗口添加
 	gosub, Menu_AdvancedConfigEdit_Gui
 Return
 
-gAdvanced_Remove: ;自定义窗口删除
+gAdvanced_Remove: ; 自定义窗口删除
 	ButtonNum := SubStr(A_GuiControl,7)
 	If (ButtonNum=2)
 		Gui, ListView, ahkGroupWin
@@ -1732,10 +1988,10 @@ gAdvanced_Remove: ;自定义窗口删除
 	        break
 	    LV_Delete(RowNumber)
 	}
-	gosub, Label_UpdateListView
+	gosub, Label_Update_ListView
 Return
 
-gAdvanced_Config: ;编辑高级配置
+gAdvanced_Config: ; 编辑高级配置
 	if (A_GuiEvent="DoubleClick" && A_EventInfo>0){
 		RunRowNumber := A_EventInfo
 		Gui, ListView, %A_GuiControl%
@@ -1764,12 +2020,13 @@ gAdvanced_Default: ; 高级配置恢复默认
 		Case 5:tempVar:="60|编辑器"
 		Case 6:tempVar:="1"
 		Case 7:tempVar:="2"
-		Case 8:tempVar:="333434|02ecfb|ff0000"
+		Case 8:tempVar:="333434|dfe3e3|02ecfb|ff0000"
+		Case 9:tempVar:="KBLAutoSwitch（%权限%）`n%启动时间%`n版本：%版本%`n自动切换统计：%自动切换次数%"
 	}
 	GuiControl,, %Advanced_Config_Edit_Hwnd1%, %tempVar%
 Return
 
-Label_ahkGroupWin_Var:
+Label_ahkGroupWin_Var: ; 窗口组对应变量
 	ConfigEdit_Flag := 1
 	ConfigEdit_h := 247
 	Text_w := 50
@@ -1781,7 +2038,7 @@ Label_ahkGroupWin_Var:
 	title := "高级窗口"
 Return
 
-Label_CustomOperation_Var:
+Label_CustomOperation_Var: ; 自定义操作对应变量
 	ConfigEdit_Flag := 2
 	ConfigEdit_h := 232
 	Text_w := 60
@@ -1794,9 +2051,9 @@ Label_CustomOperation_Var:
 	title := "高级窗口"
 Return
 
-Label_AdvancedConfig_Var:
+Label_AdvancedConfig_Var: ; 高级配置对应变量
 	ConfigEdit_Flag := 3
-	ConfigEdit_h := 166
+	ConfigEdit_h := 202
 	Text_w := 50
 	Showvar := ACvar2
 	Showvar1 := ""
@@ -1806,7 +2063,7 @@ Label_AdvancedConfig_Var:
 	title := "高级配置"
 Return
 
-Menu_AdvancedConfigEdit_Gui: ;编辑配置Gui
+Menu_AdvancedConfigEdit_Gui: ; 编辑配置Gui
 	global Advanced_Config_Edit_Hwnd,Advanced_Config_Edit_Hwnd0,Advanced_Config_Edit_Hwnd1,Advanced_Config_Edit_Hwnd2
 	global Advanced_Config_Group_Hwnd
 	global Advanced_Config_Edit_Text0
@@ -1846,24 +2103,24 @@ Menu_AdvancedConfigEdit_Gui: ;编辑配置Gui
 		Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd2 x+5 yp-2 w350 r4 -WantReturn, %ACvar5%
 	}Else If (ConfigEdit_Flag=3){
 		Gui,ConfigEdit:Add, Button, xm+350 yp-5 vButton11 ggAdvanced_Default, 恢复默认
-		Gui,ConfigEdit:Add, Text, Center xm yp+30 w%Text_w%,%Showvar1%
+		Gui,ConfigEdit:Add, Text, Center xm yp+35 w%Text_w%,%Showvar1%
 		Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd x+5 yp-2 w350 r2, %ACvar2%
 		Gui,ConfigEdit:Add, Text, Center xm yp+50 w%Text_w%, %Showvar2%
 		Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd0 x+5 yp-2 w350 r2, %ACvar3%
 		GuiControl, Hide, %Advanced_Config_Edit_Hwnd%
 		GuiControl, Hide, %Advanced_Config_Edit_Hwnd0%
 		Gui,ConfigEdit:Add, Text, Center xm yp-46 w%Text_w%,%Showvar3%
-		Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd1 x+5 yp-2 w350 r2, %ACvar4%
-		Gui,ConfigEdit:Add, Text, Center xm yp+50 w%Text_w%,说明
+		Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd1 x+5 yp-2 w350 r4, %ACvar4%
+		Gui,ConfigEdit:Add, Text, Center xm yp+90 w%Text_w%,说明
 		Gui,ConfigEdit:Add, Edit, HwndAdvanced_Config_Edit_Hwnd2 x+5 yp-2 w350 r4 -WantReturn +ReadOnly, %ACvar5%
 	}
 	Gui,ConfigEdit:Font
-	Gui,ConfigEdit:Add,Button,Default xm+140 y+25 w75 gSetAdvancedConfig,保存(&S)
-	Gui,ConfigEdit:Add,Button,x+20 w75 GSetCancel,取消(&C)
+	Gui,ConfigEdit:Add,Button,Default xm+140 y+25 w75 ggSetAdvancedConfig,保存(&S)
+	Gui,ConfigEdit:Add,Button,x+20 w75 GgSet_Cancel,取消(&C)
 	Gui,ConfigEdit:Show,,%title%
 Return
 
-SetAdvancedConfig: ; 保存高级配置
+gSetAdvancedConfig: ; 保存高级配置
 	Gui,55:Default
 	GuiControlGet, OutputVar,, %Advanced_Config_Edit_Hwnd%
 	GuiControlGet, OutputVar0,, %Advanced_Config_Edit_Hwnd0%
@@ -1889,7 +2146,7 @@ SetAdvancedConfig: ; 保存高级配置
 		LV_Modify(RunRowNumber, "Col5",OutputVar2)		
 	}
 	Gui,ConfigEdit:Destroy
-	gosub, Label_UpdateListView
+	gosub, Label_Update_ListView
 	If (ConfigEdit_Flag=1){
 		Gui, ListView, ahkGroupWin
 	}Else If (ConfigEdit_Flag=2){
@@ -1900,7 +2157,7 @@ SetAdvancedConfig: ; 保存高级配置
 	LV_Modify(FocusNum, "+Focus +Select +Vis")
 Return
 
-LVFocusNum(col,val){
+LVFocusNum(col,val) { ; 获取焦点行
 	Loop % LV_GetCount()
 	{
 	    LV_GetText(OutputVar, A_Index, col)
@@ -1909,23 +2166,23 @@ LVFocusNum(col,val){
 	}
 }
 
-SetCancel: ; 取消操作
+gSet_Cancel: ; 取消操作
 	Gui,Destroy
 return
 
-gOperation_Flag_HotString: ;更改为热字串类型
+gOperation_Flag_HotString: ; 自定义操作更改为热字串类型
 	GuiControlGet, OutputVar ,, %Advanced_Config_Group_Hwnd%
 	GuiControl,, %Advanced_Config_Group_Hwnd%, % StrReplace(OutputVar, "热键", "热字串")
 	GuiControl,, %Advanced_Config_Edit_Text0%, 热字串(s-)
 Return
 
-gOperation_Flag_HotKey: ;更改为热键类型
+gOperation_Flag_HotKey: ; 自定义操作更改为热键类型
 	GuiControlGet, OutputVar ,, %Advanced_Config_Group_Hwnd%
 	GuiControl,, %Advanced_Config_Group_Hwnd%, % StrReplace(OutputVar, "热字串", "热键")
 	GuiControl,, %Advanced_Config_Edit_Text0%, 热键(k-)
 Return
 
-Label_UpdateListView: ;更新展示数据
+Label_Update_ListView: ; 更新展示数据
 	Gui, ListView, ahkGroupWin
 	Custom_Win_Group_temp := getListViewData("自定义窗口组")
 	Gui, ListView, CustomOperation
@@ -1945,7 +2202,7 @@ Label_UpdateListView: ;更新展示数据
 	ListViewUpdate_Custom_Advanced_Config()
 Return
 
-Label_SetTimer_Reset_KBL: ; 定时重置KBL
+Label_SetTimer_ResetKBL: ; 定时重置输入法状态
 	If (A_TimeIdle>SetTimer_Reset_KBL_Time*1000){
 		SendInput, {F22 up}
 		gosub, Reset_KBL
@@ -1953,143 +2210,59 @@ Label_SetTimer_Reset_KBL: ; 定时重置KBL
 Return
 
 ;-----------------------------------【自定义功能】-----------------------------------------------
-Add_To_Cn: ;添加到中文窗口
-	item_key_val := getINIItem()
-	item_key := item_key_val[0]
-	item_val := item_key_val[1]
-	If (item_key = "")
-		Return
-	IniRead, res, %INI%, 中文窗口, %item_key%
-	If (res != "ERROR"){
-		fail = 【%item_key%】 【添加】到【中文】窗口【失败】！
-		success = 【%item_key%】已存在于 【中文】窗口！
-	}Else{
-		IniDelete, %INI%, 英文窗口, %item_key%
-		IniDelete, %INI%, 英文输入法窗口, %item_key%
-		IniWrite, %item_val%, %INI%, 中文窗口, %item_key%
-		fail = 【%item_key%】 【添加】到【中文】窗口【失败】！
-		success = 【%item_key%】 【添加】到【中文】窗口【成功】！
-	}
-	If (ErrorLevel = 1)
-		showToolTip(fail, State_ShowTime)
-	Else
-		showToolTip(success, State_ShowTime)
+Add_To_Cn: ; 添加到中文窗口
+	AddToKBLWin("中文窗口","中文窗口,英文窗口,英文输入法窗口")
 Return
 
-Add_To_CnEn: ;添加到英文窗口（中文）
-	item_key_val := getINIItem()
-	item_key := item_key_val[0]
-	item_val := item_key_val[1]
-	If (item_key = "")
-		Return
-	IniRead, res, %INI%, 英文窗口, %item_key%
-	If (res != "ERROR"){
-		fail = 【%item_key%】 【添加】到【英文(中文)】窗口【失败】！
-		success = 【%item_key%】已存在于 【英文(中文)】窗口！
-	}Else{
-		IniDelete, %INI%, 中文窗口 , %item_key%
-		IniDelete, %INI%, 英文输入法窗口 , %item_key%
-		IniWrite, %item_val%, %INI%, 英文窗口, %item_key%
-		fail = 【%item_key%】 【添加】到【英文(中文)】窗口【失败】！
-		success = 【%item_key%】 【添加】到【英文(中文)】窗口【成功】！
-	}
-	If (ErrorLevel = 1)
-		showToolTip(fail, State_ShowTime)
-	Else
-		showToolTip(success, State_ShowTime)
+Add_To_CnEn: ; 添加到英文窗口（中文）
+	AddToKBLWin("英文窗口","中文窗口,英文窗口,英文输入法窗口")
 Return
 
-Add_To_En: ;添加到英文输入法窗口
-	item_key_val := getINIItem()
-	item_key := item_key_val[0]
-	item_val := item_key_val[1]
-	If (item_key = "")
-		Return
-	IniRead, res, %INI%, 英文输入法窗口, %item_key%
-	If (res != "ERROR"){
-		fail = 【%item_key%】 【添加】到【英文输入法】窗口【失败】！
-		success = 【%item_key%】已存在于 【英文输入法】窗口！
-	}Else{
-		IniDelete, %INI%, 中文窗口 , %item_key%
-		IniDelete, %INI%, 英文窗口 , %item_key%
-		IniWrite, %item_val%, %INI%, 英文输入法窗口, %item_key%
-		fail = 【%item_key%】 【添加】到【英文输入法】窗口【失败】！
-		success = 【%item_key%】 【添加】到【英文输入法】窗口【成功】！
-	}
-	If (ErrorLevel = 1)
-		showToolTip(fail, State_ShowTime)
-	Else
-		showToolTip(success, State_ShowTime)
+Add_To_En: ; 添加到英文输入法窗口
+	AddToKBLWin("英文输入法窗口","中文窗口,英文窗口,英文输入法窗口")
 Return
 
-Add_To_DisableApp: ;添加热键屏蔽程序
-	WinGet, ahk_value, ProcessName, A
-	Disable_HotKey_App_List := Disable_HotKey_App_List "|" ahk_value
-	IniWrite, %Disable_HotKey_App_List%, %INI%, 基本设置, 热键屏蔽程序列表
+Remove_From_All: ; 从配置窗口中移除，恢复为默认输入法
+	AddToKBLWin("","中文窗口,英文窗口,英文输入法窗口")
 Return
 
-Remove_From_All: ;从配置窗口中移除，恢复为默认输入法
-	item_key_val := getINIItem()
-	item_key := item_key_val[0]
-	item_val := item_key_val[1]
-	If (item_key = "")
-		Return
-	IniRead, res1, %INI%, 中文窗口, %item_key%
-	IniRead, res2, %INI%, 英文窗口, %item_key%
-	IniRead, res3, %INI%, 英文输入法窗口, %item_key%
-	If (res1 = "ERROR" && res2 = "ERROR" && res3 = "ERROR"){
-		fail = 【%item_key%】 【移除】从【中文】窗口【失败】！
-		success = 【%item_key%】不存在于 【中文】和【英文】窗口,为【默认】输入法！
-	}Else{
-		IniDelete, %INI%, 中文窗口, %item_key%
-		IniDelete, %INI%, 英文窗口, %item_key%
-		IniDelete, %INI%, 英文输入法窗口, %item_key%
-		fail = 【%item_key%】 【移除】【失败】！
-		success = 【%item_key%】 【移除】【成功】，已恢复为【默认】输入法！
-	}
-	If (ErrorLevel = 1)
-		showToolTip(fail, State_ShowTime)
-	Else
-		showToolTip(success, State_ShowTime)
-Return
-
-Set_Chinese: ;当前窗口设为中文
+Set_Chinese: ; 当前窗口设为中文
 	If (TarHotFunFlag =0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	setKBLlLayout(0)
 Return
 
-Set_ChineseEnglish: ;当前窗口设为英文（中文输入法）
+Set_ChineseEnglish: ; 当前窗口设为英文（中文输入法）
 	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
-	Gosub, Lable_ToEnglishInputingOpera
+	Gosub, Label_ToEnglishInputingOpera
 	setKBLlLayout(1)
 Return
 
-Set_English: ;当前窗口设为英文
+Set_English: ; 当前窗口设为英文
 	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
-	Gosub, Lable_ToEnglishInputingOpera
+	Gosub, Label_ToEnglishInputingOpera
 	setKBLlLayout(2)
 Return
 
-toggle_CN_CNEN: ;切换中英文(中文)
+Toggle_CN_CNEN: ; 切换中英文(中文)
 	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	KBLState := (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code?(getIMECode(gl_Active_IMEwin_id)!=0?0:1):2)
-	If (KBLState=0 || KBLState=2){
-		Gosub, Lable_ToEnglishInputingOpera
+	If (KBLState=0){
+		Gosub, Label_ToEnglishInputingOpera
 		setKBLlLayout(1)
 	}Else If (KBLState=1 || KBLState=2)
 		setKBLlLayout(0)
 Return
 
-toggle_CN_EN: ;切换中英文输入法
+Toggle_CN_EN: ; 切换中英文输入法
 	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
 	KBLState := (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code?(getIMECode(gl_Active_IMEwin_id)!=0?0:1):2)
 	If (KBLState=0){
-		Gosub, Lable_ToEnglishInputingOpera
+		Gosub, Label_ToEnglishInputingOpera
 		If (KBLEnglish_Exist=1)
 			setKBLlLayout(2)
 		Else
@@ -2098,100 +2271,191 @@ toggle_CN_EN: ;切换中英文输入法
 		setKBLlLayout(0)
 Return
 
-Display_KBL: ;显示当前的输入法状态
+Display_KBL: ; 显示当前的输入法状态
 	showSwitch(,,1)
 Return
 
-Reset_KBL: ;重置当前输入法键盘布局
+Reset_KBL: ; 重置当前输入法键盘布局
 	If (TarHotFunFlag=0 && Outer_InputKey_Compatible=1 && A_ThisHotkey!="" && A_PriorKey!=RegExReplace(A_ThisHotkey, "iS)(~|\s|up|down)", ""))
 		Return
-	gosub, Shell_Switch
+	gosub, Label_Shell_KBLSwitch
 Return
 
-Stop_KBLAS: ;停止输入法自动切换
+Stop_KBLAS: ; 停止输入法自动切换
 	gosub, Menu_Stop
 Return
 
-Get_KeyBoard: ;手动检测键盘布局号码
+Get_KeyBoard: ; 手动检测键盘布局号码
 	InputLocaleID := Format("{1:#x}", getIMEKBL(gl_Active_IMEwin_id))
 	Clipboard := InputLocaleID
 	MsgBox, 键盘布局号码：%InputLocaleID%`n`n已复制到剪贴板
 Return
 
-getINIItem() { ;获取设置INI文件的key-val
+getINIItem(TarWin:="") { ; 获取设置INI文件的key-val
+	Prev_DetectHiddenWindows := A_DetectHiddenWindows
+	DetectHiddenWindows off
 	item_key_val := Object()
-	WinGet, ahk_value, ProcessName, A
-	If (ahk_value = "explorer.exe") ;针对explorer的优化
-	{
-		WinGetClass, ahk_value, , A
-		item_key := SubStr(ahk_value, 1, StrLen(ahk_value))
-		item_val = ahk_class %ahk_value%
-	}Else If (ahk_value = "ApplicationFrameHost.exe") ;针对uwp应用的优化
-	{
-		WinGetText, uwp_text , A
-		item_key := SubStr(uwp_text, 1, StrLen(uwp_text)-2)
+	TarWin := TarWin=""?"A":TarWin
+	WinGet, ahk_value, ProcessName, %TarWin%
+	If (ahk_value = "taskmgr.exe"){
+		item_key := "任务管理器"
+		item_val = ahk_exe taskmgr.exe
+		item_regex := item_val
+	}Else If (ahk_value = "explorer.exe"){ ; 针对explorer的优化
+		WinGetClass, ahk_value, %TarWin%
+		If (ahk_value="CabinetWClass")
+			item_key := "文件资源管理器"
+		Else
+			item_key := SubStr(ahk_value, 1, StrLen(ahk_value))
+		item_val = ahk_class %ahk_value% ahk_exe explorer.exe
+		item_regex := item_val
+	}Else If (ahk_value = "ApplicationFrameHost.exe"){ ; 针对uwp应用的优化
+		WinGetTitle uwp_title, %TarWin%
+		startPos := InStr(uwp_title,"-",,0)+1
+		item_key := SubStr(uwp_title, startPos)
 		item_val = uwp %item_key%
+		item_regex := item_val
 	}Else{
 		item_key := SubStr(ahk_value, 1, StrLen(ahk_value)-4)
 		item_val = ahk_exe %ahk_value%
+		item_regex := item_val "-|-" ahk_value
 	}
 	item_key_val[0] := item_key
 	item_key_val[1] := item_val
+	item_key_val[2] := item_regex
+	DetectHiddenWindows %Prev_DetectHiddenWindows%
 	Return item_key_val
 }
 
-TarHotFun: ;热字串功能触发
-	TarHotFunFlag := 2 ; 1表示热字符串，2表示热键
-	gosub,SetTimer_TarHotFun
-	SetTimer,SetTimer_TarHotFun,-100
-	Return
+IsHasSameRegExStr(Content,Value) { ; Content返回匹配对象
+	RegExStr:=""
+	Loop, parse, Content, `n, `r
+	{
+		If (euqalPos := InStr(A_LoopField, "=")){
+			ReadyKey := SubStr(A_LoopField,1,euqalPos-1)
+			ReadyValue := SubStr(A_LoopField,euqalPos+1)
+		}Else{
+			ReadyKey := ""
+			ReadyValue := A_LoopField
+		}
+		word_array := StrSplit(Value, "-|-")
+		For K, V in word_array {	
+			If (ReadyValue=V)
+				RegExStr .= "|\n" A_LoopField "|" A_LoopField "\n|" A_LoopField
+		}
+	}
+	RegExStr := Trim(RegExStr,"|")
+	return RegExStr=""?RegExStr:"(" RegExStr ")"
+}
 
-	SetTimer_TarHotFun:
-		TarHotVal := A_ThisHotkey
-		If (SubStr(TarHotVal, 1, 6)=":*XB0:"){
-			TarHotVal := SubStr(TarHotVal, 7)
-			TarHotFunFlag := 1
+GetRealItem_key(Section,item_key) { ; 获取合适的Item_key
+	original_item_key := item_key
+	Loop
+	{
+		IniRead, res, %INI%, %Section%, %item_key%
+		If (res!="ERROR"){
+			item_key := original_item_key "_重名" A_Index
+		}Else{
+			Return item_key
 		}
-		TarFun := TarFunList[TarHotVal]
-		Switch TarFun
-		{
-			Case 1: Gosub, Set_Chinese
-			Case 2: Gosub, Set_ChineseEnglish
-			Case 3: Gosub, Set_English
-			Case 4: Gosub, toggle_CN_CNEN
-			Case 5: Gosub, toggle_CN_EN
-			Case 6: Gosub, Reset_KBL
+	}
+}
+
+AddToKBLWin(KBLName,KBLList,TarWin:="") { ; 将当前窗口添加至指定KBL窗口，KBL窗口为空则去除
+	Thread, NoTimers , True
+	item_key_val := getINIItem(TarWin)
+	item_key := item_key_val[0]
+	item_val := item_key_val[1]
+	item_regex := item_key_val[2]
+	If (item_key = "")
+		Return
+	If (KBLName!=""){	
+		IniRead, res, %INI%, %KBLName%
+		TarItem_keys := IsHasSameRegExStr(res,item_regex)
+		If (TarItem_keys!="") {
+			msg := "【" TarItem_keys[1] "】 已存在于【" KBLName "】！"
+		}Else{
+			item_key := GetRealItem_key(KBLName,item_key)
+			IniWrite, %item_val%, %INI%, %KBLName%, %item_key%
+			msg := "【" item_key "】 添加到【" KBLName "】 【成功】！"
 		}
-		TarHotFunFlag := 0
+	}Else
+		msg := "【" item_key "】 移除 【成功】！"
+	Loop, parse, KBLList, `,
+	{
+	    If (A_LoopField=KBLName)
+	    	Continue
+	    Else {
+	    	IniRead, res, %INI%, %A_LoopField%
+	    	RegExStr := IsHasSameRegExStr(res,item_regex)
+	    	resNew := RegExReplace(res, RegExStr)
+	    	IniDelete, %INI%, %A_LoopField%
+	    	IniWrite, %resNew%, %INI%, %A_LoopField%
+	    }
+	}
+	showToolTip(msg, State_ShowTime)
+	Thread, NoTimers , False
+}
+;--------------------------------------------------------------------------------------------
+
+TarHotFun: ; 热字串功能触发
+	TarHotFunFlag := 2 ; 1表示热字符串，2表示热键
+	TarHotVal := A_ThisHotkey
+	If (SubStr(TarHotVal, 1, 6)=":*XB0:"){
+		TarHotVal := SubStr(TarHotVal, 7)
+		TarHotFunFlag := 1
+	}
+	Switch % TarFunList[TarHotVal]
+	{
+		Case 1: Gosub, Set_Chinese
+		Case 2: Gosub, Set_ChineseEnglish
+		Case 3: Gosub, Set_English
+		Case 4: Gosub, Toggle_CN_CNEN
+		Case 5: Gosub, Toggle_CN_EN
+		Case 6: Gosub, Reset_KBL
+	}
+	TarHotFunFlag := 0
 Return
 
-BoundHotkey(BoundHotkey,Hotkey_Fun){ ;绑定特殊热键
+BoundHotkey(BoundHotkey,Hotkey_Fun) { ; 绑定特殊热键
 	Switch Hotkey_Fun
 	{
 		Case 1: Hotkey, %BoundHotkey%, Set_Chinese
 		Case 2: Hotkey, %BoundHotkey%, Set_ChineseEnglish
 		Case 3: Hotkey, %BoundHotkey%, Set_English
-		Case 4: Hotkey, %BoundHotkey%, toggle_CN_CNEN
-		Case 5: Hotkey, %BoundHotkey%, toggle_CN_EN
+		Case 4: Hotkey, %BoundHotkey%, Toggle_CN_CNEN
+		Case 5: Hotkey, %BoundHotkey%, Toggle_CN_EN
 		Case 6: Hotkey, %BoundHotkey%, Reset_KBL
 	}
 }
 
-Lable_Click_showSwitch: ; 左键点击提示
+getCurPath(Cur_Style:="",k:=1080,CurName:="") { ; 获取鼠标指针路径
+	if FileExist(A_ScriptDir "\Curs\" Cur_Style "\" k "\" CurName ".ani")
+    	CurPath := A_ScriptDir "\Curs\" Cur_Style "\" k "\" CurName ".ani"
+    Else
+    	CurPath := A_ScriptDir "\Curs\" Cur_Style "\" k "\" CurName ".cur"
+    Return CurPath
+}
+
+Label_Click_showSwitch: ; 左键点击提示
+	If (A_Cursor!="IBeam"){
+		SetTimer, Label_Hide_All, -100
+		Return
+	}
 	If WinActive("ahk_group Left_Mouse_ShowKBL_Up_WinGroup"){
 		KeyWait, LButton, L
 	}
 	If OSVersion<=7
-		SetTimer,SetTimer_Lable_Click_showSwitch,-100
+		SetTimer,SetTimer_Label_Click_showSwitch,-100
 	Else
-		SetTimer,SetTimer_Lable_Click_showSwitch,-20
+		SetTimer,SetTimer_Label_Click_showSwitch,-20
 	Return
 
-	SetTimer_Lable_Click_showSwitch:
-		showSwitchTT(LastKBLState,LastCapsState,1)
+	SetTimer_Label_Click_showSwitch:
+		TT_Display_KBL(LastKBLState,LastCapsState,1)
 Return
 
-Lable_ToEnglishInputingOpera: ;切换到英文时已输入的字符处理
+Label_ToEnglishInputingOpera: ; 切换到英文时处理已输入的字符
 	Thread, NoTimers, True
 	DetectHiddenWindows off
 	If (Enter_Inputing_Content!=0 && WinExist("ahk_group IMEInput_ahk_group")){
@@ -2206,12 +2470,42 @@ Lable_ToEnglishInputingOpera: ;切换到英文时已输入的字符处理
 	Thread, NoTimers, False
 Return
 
-ExitFunc(){ ;退出执行
+Label_ReadExistIcoStyles: ; 读取Icos文件夹图标
+	global ExistIcoStyles := "" ;鼠标指针分辨率字符串
+	Loop Files, %A_ScriptDir%\Icos\*, D
+		ExistIcoStyles := ExistIcoStyles "|" A_LoopFileName
+	if (Tray_Display_Style="" or !InStr(ExistIcoStyles, "|" Tray_Display_Style))
+		Tray_Display_Style := TransformState(ExistIcoStyles,1)
+	ExistIcoStyles := Trim(ExistIcoStyles,"|")
+Return
+
+Label_ReadExistCurStyles: ; 读取Curs文件夹鼠标指针
+	global ExistCurStyles := "" ;鼠标指针分辨率字符串
+	Loop Files, %A_ScriptDir%\Curs\*, D
+		ExistCurStyles := ExistCurStyles "|" A_LoopFileName
+	if (Cur_Launch_Style="" or !InStr(ExistCurStyles, "|" Cur_Launch_Style))
+		Cur_Launch_Style := TransformState(ExistCurStyles,1)
+	ExistCurStyles := Trim(ExistCurStyles,"|")
+Return
+
+Label_ReadExistEXEIcos: ; 读取exe图标
+	global RunAnyEvFullPath := ""
+	If (InStr(Open_Ext, "RunAnyConfig.ini"))
+		IniRead, RunAEvFullPathIniDir, % GetAbsPath(Open_Ext), Config, RunAEvFullPathIniDir, %A_Space%
+		If (RunAEvFullPathIniDir="")
+			RunAnyEvFullPath := A_AppData "\RunAny\RunAnyEvFullPath.ini"
+		Else
+			RunAnyEvFullPath := GetAbsPath(RunAEvFullPathIniDir) "\RunAnyEvFullPath.ini"
+		If (!FileExist(RunAnyEvFullPath))
+			RunAnyEvFullPath := ""
+Return
+
+ExitFunc() { ; 退出执行-还原鼠标指针
 	DllCall( "SystemParametersInfo", "UInt",0x57, "UInt",0, "UInt",0, "UInt",0 ) ;还原鼠标指针
 }
 
 ;-----------------------------------【接收消息功能】-----------------------------------------------
-Receive_WM_COPYDATA(ByRef wParam,ByRef lParam){
+Receive_WM_COPYDATA(ByRef wParam,ByRef lParam) {
     StringAddress := NumGet(lParam + 2*A_PtrSize)  ; 获取 CopyDataStruct 的 lpData 成员.
     CopyOfData := StrGet(StringAddress)  ; 从结构中复制字符串.
     Remote_Dyna_Run(CopyOfData)
@@ -2219,21 +2513,21 @@ Receive_WM_COPYDATA(ByRef wParam,ByRef lParam){
 }
 
 ;~;[外部动态运行函数和插件]
-Remote_Dyna_Run(remoteRun){
+Remote_Dyna_Run(remoteRun) {
 	if(IsLabel(remoteRun)){
 		Gosub,%remoteRun%
 		return
 	}
 }
 
-Label_ClearMEM: ;清理内存
+Label_ClearMEM: ; 清理内存
     pid:=() ? DllCall("GetCurrentProcessId") : pid
     h:=DllCall("OpenProcess", "UInt", 0x001F0FFF, "Int", 0, "Int", pid)
     DllCall("SetProcessWorkingSetSize", "UInt", h, "Int", -1, "Int", -1)
     DllCall("CloseHandle", "Int", h)
 Return
 
-Send_WM_COPYDATA(ByRef StringToSend, ByRef TargetScriptTitle, wParam:=0){
+Send_WM_COPYDATA(ByRef StringToSend, ByRef TargetScriptTitle, wParam:=0) { ; 发送消息
     VarSetCapacity(CopyDataStruct, 3*A_PtrSize, 0)  ; 分配结构的内存区域.
     ; 首先设置结构的 cbData 成员为字符串的大小, 包括它的零终止符:
     SizeInBytes := (StrLen(StringToSend) + 1) * (A_IsUnicode ? 2 : 1)
@@ -2267,17 +2561,15 @@ GetCaret(Byref CaretX="", Byref CaretY="") {
 				Acc:=ComObject(9,pacc,1), ObjAddRef(pacc)
 				, Acc.accLocation(ComObj(0x4003,&x:=0), ComObj(0x4003,&y:=0)
 				, ComObj(0x4003,&w:=0), ComObj(0x4003,&h:=0), ChildId:=0)
-				,CaretX:=NumGet(x,0,"int"), CaretY:=NumGet(y,0,"int"),ObjRelease(pacc)
+				, CaretX:=NumGet(x,0,"int"), CaretY:=NumGet(y,0,"int"),ObjRelease(pacc)
 			}
 		}
 	}
-	If (A_Cursor="IBeam" && CaretX=0 && CaretY=0)
-		MouseGetPos, CaretX, CaretY
 	return {x:CaretX, y:CaretY}
 }
 
 ;-----------------------------------【内部关联功能】-----------------------------------------------
-ReadExtRunList(Open_Ext,openExtList:=""){ ;读取内部关联
+ReadExtRunList(Open_Ext,openExtList:="") { ; 读取内部关联
 	openExtListObj := Object()
 	Loop, parse, openExtList, |
 	    openExtListObj[A_LoopField]:=1
@@ -2290,7 +2582,7 @@ ReadExtRunList(Open_Ext,openExtList:=""){ ;读取内部关联
     Return openExtRunList.Count()
 }
 
-ReadExtRunList_RA(openExtConfig,openExtListObj){ ;读取RA内部关联
+ReadExtRunList_RA(openExtConfig,openExtListObj) { ; 读取内部关联-RA
     IniRead, openExtVar, %openExtConfig%, OpenExt
     openExtVar := StrReplace(openExtVar, "`%A_ScriptDir`%", "`%A_WorkingDir`%")
     SplitPath, openExtConfig, OutFileName, OutDir
@@ -2327,7 +2619,7 @@ ReadExtRunList_RA(openExtConfig,openExtListObj){ ;读取RA内部关联
     WorkingDirOld := A_WorkingDir
 }
 
-GetOpenExe(Open_Exe,RunAnyConfigPath){ ;获取打开后缀的应用（RA无路径）
+GetOpenExe(Open_Exe,RunAnyConfigPath) { ; 获取打开后缀的应用（RA无路径）
     IniRead, RunAEvFullPathIniDir, %RunAnyConfigPath%, Config, RunAEvFullPathIniDir, %A_Space%
     If (RunAEvFullPathIniDir="")
         RunAnyEvFullPath := A_AppData "\RunAny\RunAnyEvFullPath.ini"
@@ -2345,7 +2637,7 @@ GetOpenExe(Open_Exe,RunAnyConfigPath){ ;获取打开后缀的应用（RA无路�
     Return Open_Exe
 }
 
-GetAbsPath(filePath){ ;tong获取文件绝对路径
+GetAbsPath(filePath) { ; 获取文件绝对路径
     Transform, filePath, Deref, %filePath%
     SplitPath, filePath, OutFileName, OutDir
     WorkingDirOld := A_WorkingDir
