@@ -26,7 +26,7 @@ Label_DefVar: ; 初始化变量
 	global AutoSwitchFrequency := 0 ; 自动切换次数统计
 	global INI := A_ScriptDir "\KBLAutoSwitch.ini" ; 配置文件
 	global APPName := "KBLAutoSwitch"
-	global APPVersion := "2.3.0"
+	global APPVersion := "2.3.1"
 	global APPType := RegExMatch(APPVersion, "\d*\.\d*\.\d*\.\d*")?"（测试版）":"",APPVersion := APPVersion APPType
 	; 固定变量初始化
 	global State_ShowTime := 1000 ; 信息提示时间
@@ -437,6 +437,7 @@ Label_AutoRun: ; 判断是否开机自启
 	}	
 
 Label_NecessaryVar:	; 定义必要变量
+	global shellMessageFlag := 1 ; 窗口切换标志
 	global SwitchTT_id,TT_Edit_Hwnd,TT_Edit_Hwnd1 ; Gui和控件句柄
 	global LastKBLState,LastCapsState,LastMonitorNum,gl_Active_IMEwin_id ; 前一个KBL、大小写、屏幕编号状态，及激活窗口IME句柄
 	GuiTTColorObj := StrSplit(GuiTTColor, "|") ; Gui颜色
@@ -633,10 +634,16 @@ Return
 
 shellMessage(wParam, lParam) { ; 接受系统窗口回调消息切换输入法, 第一次是实时，第二次是保障
 	If ( wParam=1 || wParam=32772 || wParam=5 || wParam=4) {
+		shellMessageFlag := 1
+		SetTimer, Label_SetTimer_ResetshellMessageFlag,-500
 		Gosub, Label_Shell_KBLSwitch
 		SetTimer, Label_Shell_KBLSwitch, -100
 	}
 }
+
+Label_SetTimer_ResetshellMessageFlag:
+	shellMessageFlag := 0
+Return
 
 Label_Shell_KBLSwitch: ; 根据激活窗口切换输入法
 	Critical On
@@ -701,6 +708,9 @@ showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ; 显示中英�
 		gl_Active_IMEwin_id := getIMEwinid()
 		KBLState := (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code?(getIMECode(gl_Active_IMEwin_id)!=0?0:1):2)
 	}
+	WinGetClass, class, A
+	If (class="" || class="ForegroundStaging") ; alt+tab出现的ahk_class
+		KBLState := LastKBLState
 	If (CapsLockState="")
 		CapsLockState := DllCall("GetKeyState", UInt, 20) & 1
 	If (Cur_Size!=0)
@@ -718,7 +728,7 @@ showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ; 显示中英�
 		LastCapsState:=CapsLockState
 		If (Display_KBL_Flag[1]!=1){
 			Display_KBL_Flag[1]:=1
-			TT_Display_KBL(LastKBLState,LastCapsState)
+			TT_Display_KBL(KBLState,LastCapsState)
 		}
 		If (Display_KBL_Flag[2]!=1){
 			Display_KBL_Flag[2]:=1
@@ -743,44 +753,10 @@ showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ; 显示中英�
 
 TT_Display_KBL(KBLState,CapsLockState,mouclick:=0) { ; 显示输入法状态-TT方式
 	If (TT_OnOff_Style=0 || WinExist("ahk_class #32768") || WinActive("ahk_group DisableTTShowAppList_ahk_group")){
-		Gosub,Label_Hide_All
+		Gosub, Label_Hide_All
 		Return
 	}
-	If (TarHotFunFlag!=0 || mouclick=1){
-		Sleep,10
-		If (TarHotFunFlag=2 && WinActive("ahk_group GetCaretSleep_ahk_group"))
-			WinWait, A, , 0.01
-	}
 	KBLMsg := CapsLockState!=0?"A":KBLState=0?Display_Cn:KBLState=1?Display_CnEn:Display_En
-	If (KBLState=0){
-		If (TT_OnOff_Style!=3){
-			Gui, SwitchTT:Color, %GuiTTBackCnColor%
-			Gui, SwitchTT:Font, c%GuiTTCnColor%, %FontType%
-		}
-		If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
-			Gui, SwitchTT1:Color, %GuiTTBackCnColor%
-			Gui, SwitchTT1:Font, c%GuiTTCnColor%, %FontType%
-		}
-	}Else{
-		If (TT_OnOff_Style!=3){
-			Gui, SwitchTT:Color, %GuiTTBackEnColor%
-			Gui, SwitchTT:Font, c%GuiTTEnColor%, %FontType%
-		}
-		If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
-			Gui, SwitchTT1:Color, %GuiTTBackEnColor%
-			Gui, SwitchTT1:Font, c%GuiTTEnColor%, %FontType%
-		}
-	}
-	If (TT_OnOff_Style!=3){
-		GuiControl, Text, %TT_Edit_Hwnd%, %KBLMsg%
-		GuiControl, Font, %TT_Edit_Hwnd%
-		Gui SwitchTT:+AlwaysOnTop
-	}
-	If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
-		GuiControl, Text, %TT_Edit_Hwnd1%, %KBLMsg%
-		GuiControl, Font, %TT_Edit_Hwnd1%
-		Gui SwitchTT1:+AlwaysOnTop
-	}
 	TT_Shift_flag := 0
 	If (TT_OnOff_Style=1){
 		MouseGetPos, CaretX, CaretY	
@@ -803,25 +779,52 @@ TT_Display_KBL(KBLState,CapsLockState,mouclick:=0) { ; 显示输入法状态-TT�
 		}
 	}
 	If (TT_Shift_flag=0){
-		Gosub, Hide_TT1
+		Gui, SwitchTT1:Hide
+		Gosub, Label_Change_SwitchTT
 		CaretX := CaretX+TT_Shift_X_Real, CaretY := CaretY+TT_Shift_Y_Real
 		try Gui, SwitchTT:Show, x%CaretX% y%CaretY% NoActivate
-		SetTimer, Hide_TT, %TT_Display_Time%
 	}Else{
-		Gosub, Hide_TT
+		Gui, SwitchTT:Hide
+		Gosub, Label_Change_SwitchTT
 		try Gui, SwitchTT1:Show, x%CaretX% y%CaretY% NoActivate
-		SetTimer, Hide_TT1, %TT_Display_Time%
 	}
+	SetTimer, Hide_TT, %TT_Display_Time%
 	Return
 
-	Hide_TT:  ;隐藏GUI
+	Hide_TT: ;隐藏GUI
 		SetTimer, Hide_TT, Off
 		Gui, SwitchTT:Hide
+		Gui, SwitchTT1:Hide
 	Return
 
-	Hide_TT1:  ;隐藏GUI
-		SetTimer, Hide_TT1, Off
-		Gui, SwitchTT1:Hide
+	Label_Change_SwitchTT: ; 更新SwitchTT
+		If (KBLState=0){
+			If (TT_OnOff_Style!=3){
+				Gui, SwitchTT:Color, %GuiTTBackCnColor%
+				Gui, SwitchTT:Font, c%GuiTTCnColor%, %FontType%
+			}
+			If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+				Gui, SwitchTT1:Color, %GuiTTBackCnColor%
+				Gui, SwitchTT1:Font, c%GuiTTCnColor%, %FontType%
+			}
+		}Else{
+			If (TT_OnOff_Style!=3){
+				Gui, SwitchTT:Color, %GuiTTBackEnColor%
+				Gui, SwitchTT:Font, c%GuiTTEnColor%, %FontType%
+			}
+			If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+				Gui, SwitchTT1:Color, %GuiTTBackEnColor%
+				Gui, SwitchTT1:Font, c%GuiTTEnColor%, %FontType%
+			}
+		}
+		If (TT_OnOff_Style!=3){
+			GuiControl, Text, %TT_Edit_Hwnd%, %KBLMsg%
+			GuiControl, Font, %TT_Edit_Hwnd%
+		}
+		If (TT_OnOff_Style=3 || TT_OnOff_Style=4){
+			GuiControl, Text, %TT_Edit_Hwnd1%, %KBLMsg%
+			GuiControl, Font, %TT_Edit_Hwnd1%
+		}
 	Return
 }
 
@@ -946,7 +949,6 @@ setIME(setSts, win_id:="") { ; 设置输入法状态-获取状态-末位设置
 }
 
 setKBLlLayout(KBL:=0,Source:=0) { ; 设置输入法键盘布局
-	Thread, NoTimers, True
 	AutoSwitchFrequency += Source
 	gl_Active_IMEwin_id := getIMEwinid()
 	CapsLockState := LastCapsState
@@ -982,7 +984,6 @@ setKBLlLayout(KBL:=0,Source:=0) { ; 设置输入法键盘布局
 		If (getIMEKBL(gl_Active_IMEwin_id)!=EN_Code)
 			PostMessage, 0x50, , %EN_Code%, , ahk_id %gl_Active_IMEwin_id%
 	}
-	Thread, NoTimers, False
 	try showSwitch(KBL,CapsLockState,1)
 	SetTimer, Label_Change_TrayTip, -1000
 }
@@ -1082,7 +1083,7 @@ Label_Init_INI: ; 初始化配置文件INI
 	FileAppend,切换重置大小写=1`n, %INI%
 	FileAppend,上屏字符内容=2`n, %INI%
 	FileAppend,提示颜色=333434|dfe3e3|02ecfb|ff0000`n, %INI%
-	FileAppend,托盘提示内容=KBLAutoSwitch（`%权限`%）``n`%启动时间`%``n版本：`%版本`%``n自动切换统计：`%自动切换次数`%`n, %INI%
+		FileAppend,托盘提示内容=KBLAutoSwitch（`%权限`%）``n`%启动时间`%``n版本：`%版本`%``n自动切换统计：`%自动切换次数`%`n, %INI%
 
 	FileAppend,[自定义窗口组]`n, %INI%
 	FileAppend,1=全局窗口=0=AllGlobalWin=全局窗口组`n, %INI%
@@ -2439,7 +2440,8 @@ getCurPath(Cur_Style:="",k:=1080,CurName:="") { ; 获取鼠标指针路径
 
 Label_Click_showSwitch: ; 左键点击提示
 	If (A_Cursor!="IBeam"){
-		SetTimer, Label_Hide_All, -100
+		If (shellMessageFlag=0)
+			SetTimer, Label_Hide_All, -100
 		Return
 	}
 	If WinActive("ahk_group Left_Mouse_ShowKBL_Up_WinGroup"){
@@ -2549,20 +2551,38 @@ Send_WM_COPYDATA(ByRef StringToSend, ByRef TargetScriptTitle, wParam:=0) { ; 发
 GetCaret(Byref CaretX="", Byref CaretY="") {
 	static init
 	CoordMode, Caret, Screen
-	CaretX:=A_CaretX, CaretY:=A_CaretY
+	Loop 5
+	{
+		CaretX:=A_CaretX, CaretY:=A_CaretY
+		If (CaretX or CaretY)
+			Break
+		Else
+			Sleep 10
+	}
+	If WinActive("ahk_group GetCaretSleep_ahk_group") {
+		LoopCount := 10
+	}Else
+		LoopCount := 1
 	if (!CaretX or !CaretY){
-		Try {
-			if (!init)
-				init:=DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "oleacc", "Ptr"), "AStr", "AccessibleObjectFromWindow", "Ptr")
-			VarSetCapacity(IID,16), idObject:=OBJID_CARET:=0xFFFFFFF8
-			, NumPut(idObject==0xFFFFFFF0?0x0000000000020400:0x11CF3C3D618736E0, IID, "Int64")
-			, NumPut(idObject==0xFFFFFFF0?0x46000000000000C0:0x719B3800AA000C81, IID, 8, "Int64")
-			if DllCall(init, "Ptr",WinExist("A"), "UInt",idObject, "Ptr",&IID, "Ptr*",pacc)=0 {
-				Acc:=ComObject(9,pacc,1), ObjAddRef(pacc)
-				, Acc.accLocation(ComObj(0x4003,&x:=0), ComObj(0x4003,&y:=0)
-				, ComObj(0x4003,&w:=0), ComObj(0x4003,&h:=0), ChildId:=0)
-				, CaretX:=NumGet(x,0,"int"), CaretY:=NumGet(y,0,"int"),ObjRelease(pacc)
+		Loop %LoopCount%
+		{
+			Try {
+				if (!init)
+					init:=DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "oleacc", "Ptr"), "AStr", "AccessibleObjectFromWindow", "Ptr")
+				VarSetCapacity(IID,16), idObject:=OBJID_CARET:=0xFFFFFFF8
+				, NumPut(idObject==0xFFFFFFF0?0x0000000000020400:0x11CF3C3D618736E0, IID, "Int64")
+				, NumPut(idObject==0xFFFFFFF0?0x46000000000000C0:0x719B3800AA000C81, IID, 8, "Int64")
+				if DllCall(init, "Ptr",WinExist("A"), "UInt",idObject, "Ptr",&IID, "Ptr*",pacc)=0 {
+					Acc:=ComObject(9,pacc,1), ObjAddRef(pacc)
+					, Acc.accLocation(ComObj(0x4003,&x:=0), ComObj(0x4003,&y:=0)
+					, ComObj(0x4003,&w:=0), ComObj(0x4003,&h:=0), ChildId:=0)
+					, CaretX:=NumGet(x,0,"int"), CaretY:=NumGet(y,0,"int"),ObjRelease(pacc)
+				}
 			}
+			If (CaretX or CaretY)
+				Break
+			Else
+				Sleep 10
 		}
 	}
 	return {x:CaretX, y:CaretY}
