@@ -1,9 +1,13 @@
 # AHK中英文输入法自动切换
+部分功能演示
+1. 自动切换中英文输入法
 ![自动切换输入法演示.gif](https://m.360buyimg.com/babel/jfs/t1/187299/21/27585/1238662/62f34ec8E37ad3b85/10f9ab365bd68d20.gif)
-
+2. 自定义热键-自动切换加提示
 ![自定义加提示.gif](https://m.360buyimg.com/babel/jfs/t1/197845/19/26032/442094/62f34ef1E0abb2521/5b8edde33be20e21.gif)
-
-![1654749845991.png](https://m.360buyimg.com/babel/jfs/t1/192578/23/27421/329754/62f34f0cEc02de213/4294c5288edf46dc.png)
+3. 自定义热键-TC中英文自动切换
+3![自定义热键-TC中英文自动切换.gif](https://m.360buyimg.com/babel/jfs/t1/31045/19/17177/194100/62f71964Ef37bc679/e5c91bb562f8d409.gif)
+4. 设置页面
+![1654749845991.png](https://m.360buyimg.com/babel/jfs/t1/204421/40/25151/379761/62f71a4eE1dffd74b/fb4725653d78bd57.png)
 #### 介绍
 
 基于AutoHotkey的中英文输入法自动切换
