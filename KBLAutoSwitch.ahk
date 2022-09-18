@@ -1,5 +1,5 @@
 ﻿/*tong(【自动切换输入法】)
-	版本: v2.4.0
+	版本: v2.4.1
 	脚本: KBLAutoSwitch自动切换输入法
 	作者: tong
 */
@@ -28,6 +28,7 @@ Label_DefVar: ; 初始化变量
 	global ScriptIniting := 1 ; 脚本初始化中
 	global APPName := "KBLAutoSwitch"
 	global APPVersion := "2.4.0"
+	global APPVersion := "2.4.1"
 	global INI := A_ScriptDir "\KBLAutoSwitch.ini" ; 配置文件
 	global AutoSwitchFrequency := 0 ; 自动切换次数统计
 	global APPType := RegExMatch(APPVersion, "\d*\.\d*\.\d*\.\d*")?"（测试版）":"",APPVersion := APPVersion APPType
@@ -369,8 +370,12 @@ Label_CurLaunch: ; 鼠标指针初始化
 		global OCR_SIZEALL:=32646,OCR_SIZENESW:=32643,OCR_SIZENS:=32645,OCR_SIZENWSE:=32642,OCR_SIZEWE:=32644
 		global 	CurPathObjs := Object()
 		Loop, % MonitorAreaObjects.Length(){
-			WindowsHeight := MonitorAreaObjects[A_Index][5]
-			realWindowsHeight := WindowsHeight
+			If (ExistCurSize=""){
+				realWindowsHeight := 0
+			}Else{
+				WindowsHeight := MonitorAreaObjects[A_Index][5]
+				realWindowsHeight := WindowsHeight
+			}
 			If (!FileExist(A_ScriptDir "\Curs\" Cur_Launch_Style "\" realWindowsHeight)){
 				Loop, parse, ExistCurSize, |
 				{
@@ -382,7 +387,7 @@ Label_CurLaunch: ; 鼠标指针初始化
 						realWindowsHeight := Abs(A_LoopField-WindowsHeight)<Abs(WindowsHeight-realWindowsHeight)?A_LoopField:realWindowsHeight
 				}
 			}
-			If (Cur_Size!=0)
+			If (Cur_Size)
 				realWindowsHeight := Cur_Size
 			MonitorAreaObjects[A_Index][5] := realWindowsHeight
 			CurPathObjs[MonitorAreaObjects[A_Index][5]] := 1
@@ -875,7 +880,7 @@ showSwitch(KBLState:="",CapsLockState:="",ForceShowSwitch:=0) { ; 显示中英�
 		KBLState := LastKBLState
 	If (CapsLockState="")
 		CapsLockState := DllCall("GetKeyState", UInt, 20) & 1
-	If (Cur_Size!=0)
+	If (Cur_Size)
 		MonitorNum := 1
 	Else{
 		CoordMode, Mouse , Screen
@@ -1373,7 +1378,7 @@ Menu_Settings_Gui: ; 设置页面Gui
 	Gosub, gChange_Cur_Launch_Style
 	Gui, 55:Add, Text, xm+left_margin-12 yp+43, 鼠标分辨率
 	Gui, 55:Add, DropDownList, x+5 yp-3 w%text_width% vCur_Size, 自动%ExistCurSize%
-	GuiControl, Choose, Cur_Size, % Cur_Size=0?1:getIndexDropDownList(ExistCurSize,Cur_Size)
+	GuiControl, Choose, Cur_Size, % !Cur_Size?1:getIndexDropDownList(ExistCurSize,Cur_Size)
 
 	Gui, 55:Tab
 	gui, 55:Font, underline
@@ -1588,9 +1593,9 @@ Menu_About: ; 关于页面Gui
 	oWB.Refresh()
 	Gui, 99:Font, s11 Bold, Microsoft YaHei
 	Gui, 99:Add, Link, xm+18 y+10, 交流群：<a href="%交流群%">%交流群信息%</a>
-	Gui, 99:Add, Link, xm+18 y+10, 帮助文档：<a href="%帮助文档%">帮助文档：%帮助文档%</a>
+	Gui, 99:Add, Link, xm+18 y+10, 帮助文档：<a href="%帮助文档%">%帮助文档%</a>
 	Gui, 99:Add, Link, xm+18 y+10, github地址：<a href="%github地址%">%github地址%</a>
-	Gui, 99:Add, Link, xm+18 y+10, 下载地址：<a href="%下载地址%">下载地址：%下载地址%  提取码：%下载地址提取码%</a>
+	Gui, 99:Add, Link, xm+18 y+10, 下载地址：<a href="%下载地址%">%下载地址%  提取码：%下载地址提取码%</a>
 	Gui, 99:Add, Link, xm+18 y+10, RunAny官网：<a href="https://hui-zz.gitee.io/runany/#/">https://hui-zz.gitee.io/runany/#/</a>
 	Gui, 99:Add, Link, xm+18 y+10, RunAny交流群：<a href="https://jq.qq.com/?_wv=1027&k=445Ug7u">246308937【RunAny快速启动一劳永逸】</a>
 	Gui, 99:Add, Link, xm+18 y+10, AHK中文论坛：<a href="https://www.autoahk.com/">https://www.autoahk.com/</a>
@@ -1806,9 +1811,13 @@ gChange_Cur_Launch_Style: ; 变更鼠标指针
 	ExistCurSize_Show := ""
 	Loop Files, %A_ScriptDir%\Curs\%OutputVar%\*, D
 		ExistCurSize_Show := ExistCurSize_Show "|" A_LoopFileName
+	If (ExistCurSize_Show="")
+		CurSize_Show := 0
+	Else
+		CurSize_Show := StrSplit(ExistCurSize_Show, "|")[2]
 	GuiControl,, Cur_Size, |自动%ExistCurSize_Show%
-	GuiControl, Choose, Cur_Size, % Cur_Size=0?1:getIndexDropDownList(ExistCurSize_Show,Cur_Size)
-	GuiControl,, %Cur_Launch_Style_Pic_hwnd%, % getCurPath(OutputVar,1080,"NORMAL_Cn")
+	GuiControl, Choose, Cur_Size, % !Cur_Size?1:!getIndexDropDownList(ExistCurSize_Show,Cur_Size)?1:getIndexDropDownList(ExistCurSize_Show,Cur_Size)
+	GuiControl,, %Cur_Launch_Style_Pic_hwnd%, % getCurPath(OutputVar,CurSize_Show,"NORMAL_Cn")
 Return
 
 gCurrentWin_Add: ; 添加当前已有窗口至KBL
@@ -1883,15 +1892,16 @@ gCurrentWin_Sub: ; 删除已有窗口
 		WinGet, IcoPath, ProcessPath, %ReadyValue%
 		If (IcoPath=""){
 			RegExMatch(ReadyValue, "ahk_exe (.*\.exe)", SubPat)
-			IcoPath := getExePath(SubPat1)
+			IcoPath := getExeIcoPath(SubPat1)
 		}
 		Menu, Menu_KBLWin, Add, %A_LoopField%, Label_Sub_KBLWin
 		If (IcoPath) {
-			Try Menu, Menu_KBLWin, Icon, %A_LoopField%, %IcoPath%,,32
+			IcoPath := StrSplit(IcoPath, ","),IcoNum := IcoPath[2],IcoPath := IcoPath[1]
+			Try Menu, Menu_KBLWin, Icon, %A_LoopField%, %IcoPath%,%IcoNum%,32
 			Catch
 				Menu, Menu_KBLWin, Icon, %A_LoopField%,shell32.dll,3,32
 		}Else
-				Menu, Menu_KBLWin, Icon, %A_LoopField%,shell32.dll,3,32
+			Menu, Menu_KBLWin, Icon, %A_LoopField%,shell32.dll,3,32
 	}
 	GuiControlGet, ControlHwnd, Hwnd, %A_GuiControl%
     ControlGetPos, x, y, w, h, ,ahk_id %ControlHwnd%
@@ -2121,17 +2131,24 @@ getLVNewOrder() { ; 获取缺失序号
 	Return Order+1
 }
 
-getExePath(exeName){ ; 根据exe名称获取exe程序路径
+getExeIcoPath(exeName){ ; 根据exe名称获取exe程序路径
 	If (exeName!="" && RunAnyEvFullPath!="")
-		try IniRead, ExePath, %RunAnyEvFullPath%, FullPath, %exeName%, %A_Space%
-	If (ExePath="")
+		try IniRead, ExeIcoPath, %RunAnyEvFullPath%, FullPath, %exeName%, %A_Space%
+	If (ExeIcoPath=""){
 		Switch exeName
 		{
-			Case "Taskmgr.exe":ExePath:="C:\Windows\System32\Taskmgr.exe"
-			Case "cmd.exe":ExePath:="C:\Windows\System32\cmd.exe"
-			Case "explorer.exe":ExePath:="C:\Windows\explorer.exe"
+			Case "Taskmgr.exe":ExeIcoPath:="C:\Windows\System32\Taskmgr.exe"
+			Case "cmd.exe":ExeIcoPath:="C:\Windows\System32\cmd.exe"
+			Case "explorer.exe":ExeIcoPath:="C:\Windows\explorer.exe"
 		}
-	Return ExePath
+	}Else{
+		Attributes := DllCall("GetFileAttributes", "str", ExeIcoPath, "uint")
+		If (Attributes=4294967295) ; 文件不存在
+			ExeIcoPath := ""
+		Else If (Attributes&4194304) ; 在网络而未在本地
+			ExeIcoPath := "imageres.dll,232"
+	}
+	Return ExeIcoPath
 }
 
 ;-----------------------------------【高级配置功能】-----------------------------------------------
@@ -3147,10 +3164,14 @@ showToolTip(Msg="", ShowTime=1000) { ; ToolTip提示信息
 	Return
 }
 
-getCurPath(Cur_Style:="",k:=1080,CurName:="") { ; 获取鼠标指针路径
-	if FileExist(A_ScriptDir "\Curs\" Cur_Style "\" k "\" CurName ".ani")
-    	CurPath := A_ScriptDir "\Curs\" Cur_Style "\" k "\" CurName ".ani"
+getCurPath(Cur_Style:="",CurSize:=1080,CurName:="") { ; 获取鼠标指针路径
+	If (!CurSize)
+		CurPath := A_ScriptDir "\Curs\" Cur_Style "\" CurName
+	Else
+		CurPath := A_ScriptDir "\Curs\" Cur_Style "\" CurSize "\" CurName
+	if FileExist(CurPath ".ani")
+    	CurPath := CurPath ".ani"
     Else
-    	CurPath := A_ScriptDir "\Curs\" Cur_Style "\" k "\" CurName ".cur"
+    	CurPath := CurPath ".cur"
     Return CurPath
 }
